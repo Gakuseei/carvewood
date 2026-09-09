@@ -1,4 +1,4 @@
---[[ CarveWood v3.7 | Delta mobile | no login, no key ]]
+--[[ CarveWood v3.8 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -93,6 +93,20 @@ local function grabAll()
     end
     local t0 = os.clock()
     while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
+    return n
+end
+
+local function grabsLeft()
+    local n = 0
+    for i = #seedList, 1, -1 do
+        local p = seedList[i]
+        if not p.Parent then
+            table.remove(seedList, i)
+            seedSeen[p] = nil
+        elseif p.Enabled then
+            n = n + 1
+        end
+    end
     return n
 end
 
@@ -431,7 +445,24 @@ task.spawn(function()
                 task.wait(0.4)
                 pcall(grabAll)
                 if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
-                task.wait(getgenv().CW_RerollDelay or 0.2)
+                local cap = getgenv().CW_CollectCap or 5
+                local t1 = os.clock()
+                local calm = 0
+                while os.clock() - t1 < cap do
+                    if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
+                    local left = 0
+                    pcall(function() left = grabsLeft() end)
+                    if left <= 0 then
+                        calm = calm + 1
+                        if calm >= 2 then break end
+                    else
+                        calm = 0
+                        getgenv().CW_Phase = "collect (" .. left .. ")"
+                        pcall(grabAll)
+                        if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
+                    end
+                    task.wait(0.15)
+                end
             end
         else
             task.wait(0.3)
@@ -501,7 +532,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.7  |  no key"
+ver.Text = "v3.8  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
