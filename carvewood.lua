@@ -1,4 +1,4 @@
---[[ CarveWood v6.0 | Delta mobile | no login, no key ]]
+--[[ CarveWood v7.0 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -91,8 +91,10 @@ local function grabAll()
             runCollect(p)
         end
     end
-    local t0 = os.clock()
-    while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
+    if n > 0 then
+        local t0 = os.clock()
+        while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
+    end
     return n
 end
 
@@ -164,6 +166,7 @@ local function doReroll()
 end
 
 local RunService = game:GetService("RunService")
+local smoothPos, smoothLook = nil, nil
 local function shakeOn()
     pcall(function()
         local cc = ((gethui and gethui()) or game:GetService("CoreGui")):FindFirstChild("CenterCameraUI")
@@ -173,25 +176,31 @@ local function shakeOn()
         pcall(function() getgenv().CenterCameraConnection:Disconnect() end)
         getgenv().CenterCameraConnection = nil
     end
-    if getgenv().CW_ShakeConn then getgenv().CW_ShakeConn:Disconnect() end
-    getgenv().CW_ShakeConn = RunService.RenderStepped:Connect(function()
+    smoothPos, smoothLook = nil, nil
+    pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
+    RunService:BindToRenderStep("CW_AntiShake", Enum.RenderPriority.Last.Value + 1, function()
         if not getgenv().CW_AntiShake then return end
-        local char = LP.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local cam = workspace.CurrentCamera
-            if cam then
-                cam.CameraType = Enum.CameraType.Scriptable
-                cam.CFrame = CFrame.lookAt(root.Position + Vector3.new(30, -4, 0), root.Position)
-            end
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        if cam.CameraType ~= Enum.CameraType.Custom then
+            cam.CameraType = Enum.CameraType.Custom
         end
+        local cf = cam.CFrame
+        local p = cf.Position
+        local a = getgenv().CW_ShakeSmooth or 0.5
+        if not smoothPos or (p - smoothPos).Magnitude > 25 then
+            smoothPos, smoothLook = p, cf.LookVector
+            return
+        end
+        smoothPos = smoothPos:Lerp(p, a)
+        local lv = smoothLook:Lerp(cf.LookVector, a)
+        if lv.Magnitude > 1e-4 then smoothLook = lv.Unit end
+        cam.CFrame = CFrame.lookAt(smoothPos, smoothPos + smoothLook)
     end)
 end
 local function shakeOff()
-    if getgenv().CW_ShakeConn then
-        getgenv().CW_ShakeConn:Disconnect()
-        getgenv().CW_ShakeConn = nil
-    end
+    pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
+    smoothPos, smoothLook = nil, nil
     local cam = workspace.CurrentCamera
     if cam then
         cam.CameraType = Enum.CameraType.Custom
@@ -440,10 +449,10 @@ task.spawn(function()
             end
             local calm = 0
             local t1 = os.clock()
+            if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
             while os.clock() - t1 < (getgenv().CW_CollectCap or 4) do
                 if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
                 pcall(grabAll)
-                if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
                 local c = 0
                 pcall(function() c = seedCount() end)
                 getgenv().CW_Phase = "collect (" .. c .. ")"
@@ -527,7 +536,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v6.0  |  no key"
+ver.Text = "v7.0  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -606,6 +615,17 @@ toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
             getgenv().CW_FarmSince = nil
         end
         getgenv().CW_Farm = v
+        if v then
+            if not getgenv().CW_AntiShake then
+                getgenv().CW_AutoShake = true
+                getgenv().CW_AntiShake = true
+                pcall(shakeOn)
+            end
+        elseif getgenv().CW_AutoShake then
+            getgenv().CW_AutoShake = false
+            getgenv().CW_AntiShake = false
+            pcall(shakeOff)
+        end
     end)
 toggle("Auto Frenzy", 56, function() return getgenv().CW_Frenzy end,
     function(v) getgenv().CW_Frenzy = v end)
