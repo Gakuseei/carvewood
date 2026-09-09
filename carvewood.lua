@@ -1,4 +1,4 @@
---[[ CarveWood v1.1 | Delta mobile | kein login, kein key ]]
+--[[ CarveWood v2.5 | Delta mobile | kein login, kein key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
