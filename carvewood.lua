@@ -1,4 +1,4 @@
---[[ CarveWood v5.0 | Delta mobile | no login, no key ]]
+--[[ CarveWood v6.0 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -93,20 +93,6 @@ local function grabAll()
     end
     local t0 = os.clock()
     while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
-    return n
-end
-
-local function grabsLeft()
-    local n = 0
-    for i = #seedList, 1, -1 do
-        local p = seedList[i]
-        if not p.Parent then
-            table.remove(seedList, i)
-            seedSeen[p] = nil
-        elseif p.Enabled then
-            n = n + 1
-        end
-    end
     return n
 end
 
@@ -425,89 +411,53 @@ local function seedCount()
     return c
 end
 
-local function waitSeedsReady()
-    local last, stable = -1, 0
-    local t0 = os.clock()
-    while os.clock() - t0 < 8 do
-        if not (getgenv().CW_Farm and getgenv().CW_Running) then break end
-        if getgenv().CW_Rolled then return "rolled" end
-        local c = 0
-        pcall(function() c = seedCount() end)
-        if c > 0 and c == last then
-            stable = stable + 1
-            if stable >= 3 then return "stable" end
-        else
-            stable = 0
-        end
-        last = c
-        getgenv().CW_Phase = "warte (" .. c .. ")"
-        task.wait(0.2)
-    end
-    return "empty"
-end
-
 task.spawn(function()
     while getgenv().CW_Running and getgenv().CW_Gen == myGen do
         if getgenv().CW_Farm then
-            getgenv().CW_Phase = "reroll"
             getgenv().CW_TFire = os.clock()
+            getgenv().CW_Rolled = false
+            getgenv().CW_Need = 0
+            getgenv().CW_Phase = "reroll"
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
-            getgenv().CW_Rolled = false
-            getgenv().CW_Need = 0
             local rt = os.clock()
-            local rollCap = getgenv().CW_HasRollEvent and (getgenv().CW_RollTimeout or 3) or 0.2
+            local rollCap = getgenv().CW_HasRollEvent and (getgenv().CW_RollTimeout or 3) or 0.3
             while not getgenv().CW_Rolled and os.clock() - rt < rollCap do
                 if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
                 task.wait(0.05)
             end
-            task.wait(getgenv().CW_Settle or 0.2)
+            local tR = os.clock()
             pcall(trackScan)
+            local tS = 0
             local t0 = os.clock()
-            while os.clock() - t0 < 6 do
+            while os.clock() - t0 < (getgenv().CW_SpawnCap or 4) do
                 if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
                 local c = 0
                 pcall(function() c = seedCount() end)
-                if c > 0 then break end
-                task.wait(0.2)
+                if c > 0 then tS = os.clock() break end
+                task.wait(0.1)
             end
-            if getgenv().CW_Farm then
-                getgenv().CW_Phase = "collect"
-                task.wait(0.4)
+            local calm = 0
+            local t1 = os.clock()
+            while os.clock() - t1 < (getgenv().CW_CollectCap or 4) do
+                if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
                 pcall(grabAll)
                 if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
-                local cap = getgenv().CW_CollectCap or 5
-                local need = getgenv().CW_Need or 0
-                local maxSeen = 0
-                local t1 = os.clock()
-                local calm = 0
-                while os.clock() - t1 < cap do
-                    if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
-                    local left = 0
-                    pcall(function() left = grabsLeft() end)
-                    if left > maxSeen then maxSeen = left end
-                    if left <= 0 then
-                        if need > 0 and maxSeen < need then
-                            calm = 0
-                            getgenv().CW_Phase = "welle? (" .. maxSeen .. "/" .. need .. ")"
-                        else
-                            calm = calm + 1
-                            if calm >= 2 then break end
-                        end
-                    else
-                        calm = 0
-                        getgenv().CW_Phase = "collect (" .. left .. ")"
-                        pcall(grabAll)
-                        if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
-                    end
-                    task.wait(0.1)
+                local c = 0
+                pcall(function() c = seedCount() end)
+                getgenv().CW_Phase = "collect (" .. c .. ")"
+                if c <= 0 then
+                    calm = calm + 1
+                    if calm >= 2 then break end
+                else
+                    calm = 0
                 end
-                local tF = getgenv().CW_TFire or t1
-                local tS = getgenv().CW_TStarted or tF
-                local tR = getgenv().CW_TResult or tS
-                getgenv().CW_LastBreak = string.format("srv %.1f coll %.1f", tR - tF, os.clock() - tR)
+                task.wait(0.1)
             end
+            local tF = getgenv().CW_TFire or tR
+            if tS == 0 then tS = tR end
+            getgenv().CW_LastBreak = string.format("srv %.1f spw %.1f col %.1f", tR - tF, tS - tR, os.clock() - tS)
         else
             task.wait(0.3)
         end
@@ -577,7 +527,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v5.0  |  no key"
+ver.Text = "v6.0  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
