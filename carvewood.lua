@@ -404,9 +404,17 @@ task.spawn(function()
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
-            task.wait(1)
+            local t0 = os.clock()
+            while os.clock() - t0 < 6 do
+                if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
+                local c = 0
+                pcall(function() c = seedCount() end)
+                if c > 0 then break end
+                task.wait(0.2)
+            end
             if getgenv().CW_Farm then
                 getgenv().CW_Phase = "collect"
+                task.wait(0.4)
                 pcall(grabAll)
                 if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
             end
@@ -478,7 +486,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.3  |  no key"
+ver.Text = "v3.4  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
