@@ -1,4 +1,4 @@
---[[ CarveWood v3.8 | Delta mobile | no login, no key ]]
+--[[ CarveWood v3.9 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -432,6 +432,8 @@ task.spawn(function()
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
+            task.wait(getgenv().CW_Settle or 0.7)
+            pcall(trackScan)
             local t0 = os.clock()
             while os.clock() - t0 < 6 do
                 if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
@@ -454,7 +456,7 @@ task.spawn(function()
                     pcall(function() left = grabsLeft() end)
                     if left <= 0 then
                         calm = calm + 1
-                        if calm >= 2 then break end
+                        if calm >= 3 then break end
                     else
                         calm = 0
                         getgenv().CW_Phase = "collect (" .. left .. ")"
@@ -532,7 +534,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.8  |  no key"
+ver.Text = "v3.9  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
