@@ -14,6 +14,7 @@ getgenv().CW_LowQ = getgenv().CW_LowQ or false
 getgenv().CW_Rolls = 0
 getgenv().CW_FarmTime = 0
 getgenv().CW_FarmSince = nil
+getgenv().CW_Frenzy = getgenv().CW_Frenzy or false
 
 local function myTycoon()
     local folder = workspace:FindFirstChild("Tycoons")
@@ -43,7 +44,7 @@ local function fireCollectRemotes()
     end
 end
 
-local function collectSeed(p, noInvoke)
+local function collectSeed(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     if not p.Enabled then return false end
     local nm = p.Name
@@ -51,15 +52,14 @@ local function collectSeed(p, noInvoke)
     getgenv().CW_Tries = (getgenv().CW_Tries or 0) + 1
     pcall(function() getgenv().CW_Last = p:GetFullName() end)
     pcall(function() fireproximityprompt(p) end)
-    if not noInvoke then pcall(fireCollectRemotes) end
     return true
 end
 
 local active = 0
-local function runCollect(p, noInvoke)
+local function runCollect(p)
     active = active + 1
     task.spawn(function()
-        pcall(collectSeed, p, noInvoke)
+        pcall(collectSeed, p)
         active = active - 1
     end)
 end
@@ -74,16 +74,11 @@ local function grabAll()
             table.remove(seedList, i)
         elseif p.Enabled then
             n = n + 1
-            runCollect(p, true)
+            runCollect(p)
         end
     end
     local t0 = os.clock()
     while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
-    if n > 0 then
-        pcall(fireCollectRemotes)
-        task.wait(0.05)
-        pcall(fireCollectRemotes)
-    end
     return n
 end
 
@@ -338,6 +333,7 @@ task.spawn(function()
             if getgenv().CW_Farm then
                 getgenv().CW_Phase = "collect"
                 pcall(grabAll)
+                if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
             end
         else
             task.wait(0.3)
@@ -378,8 +374,8 @@ gui.ResetOnSpawn = false
 gui.Parent = parent
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 440, 0, 260)
-main.Position = UDim2.new(0.5, -220, 0.5, -130)
+main.Size = UDim2.new(0, 440, 0, 300)
+main.Position = UDim2.new(0.5, -220, 0.5, -150)
 main.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 main.BorderSizePixel = 0
 main.Active = true
@@ -407,7 +403,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.0  |  no key"
+ver.Text = "v3.1  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -487,12 +483,14 @@ toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
         end
         getgenv().CW_Farm = v
     end)
+toggle("Auto Frenzy", 56, function() return getgenv().CW_Frenzy end,
+    function(v) getgenv().CW_Frenzy = v end)
 
-section("PERF", 72)
-toggle("Low Quality", 96, function() return getgenv().CW_LowQ end,
+section("PERF", 104)
+toggle("Low Quality", 128, function() return getgenv().CW_LowQ end,
     function(v) getgenv().CW_LowQ = v if v then lowQOn() else lowQOff() end end)
-section("CAMERA", 144)
-toggle("Anti Shake", 168, function() return getgenv().CW_AntiShake end,
+section("CAMERA", 176)
+toggle("Anti Shake", 200, function() return getgenv().CW_AntiShake end,
     function(v) getgenv().CW_AntiShake = v if v then shakeOn() else shakeOff() end end)
 
 local foot = Instance.new("TextLabel")
@@ -547,6 +545,7 @@ btnX.MouseButton1Click:Connect(function()
     getgenv().CW_AutoReroll = false
     getgenv().CW_AntiShake = false
     getgenv().CW_Farm = false
+    getgenv().CW_Frenzy = false
     getgenv().CW_Running = false
     pcall(shakeOff)
     if getgenv().CW_LowQ then getgenv().CW_LowQ = false pcall(lowQOff) end
