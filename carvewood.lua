@@ -1,4 +1,4 @@
---[[ CarveWood v7.2 | Delta mobile | no login, no key ]]
+--[[ CarveWood v7.3 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -234,6 +234,20 @@ local function stripInst(v)
             getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
             v.Enabled = false
         end
+    elseif v:IsA("PointLight") or v:IsA("SpotLight") or v:IsA("SurfaceLight") then
+        if v.Enabled then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
+            v.Enabled = false
+        end
+        if v.Shadows then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Shadows", true }
+            v.Shadows = false
+        end
+    elseif v:IsA("SurfaceAppearance") then
+        if v.Transparency ~= 1 then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Transparency", v.Transparency }
+            v.Transparency = 1
+        end
     elseif v:IsA("MeshPart") then
         if v.RenderFidelity ~= Enum.RenderFidelity.Performance then
             getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "RenderFidelity", v.RenderFidelity }
@@ -261,8 +275,18 @@ local function lowQOn()
                 getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
                 v.Enabled = false
             end
+        elseif v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect")
+            or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect") then
+            if v.Enabled then
+                getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
+                v.Enabled = false
+            end
         end
     end
+    if getgenv().CW_LowQSaved.it == nil then
+        getgenv().CW_LowQSaved.it = workspace.InterpolationThrottling
+    end
+    pcall(function() workspace.InterpolationThrottling = Enum.InterpolationThrottlingMode.Enabled end)
     local T = workspace:FindFirstChildOfClass("Terrain")
     if T then
         local dec = true
@@ -302,6 +326,7 @@ local function lowQOff()
     local s = getgenv().CW_LowQSaved
     if s then
         L.GlobalShadows = s.shadows
+        if s.it ~= nil then pcall(function() workspace.InterpolationThrottling = s.it end) end
         if s.fog then L.FogEnd = s.fog end
         if s.terr then
             local T = workspace:FindFirstChildOfClass("Terrain")
@@ -510,7 +535,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v7.2  |  no key"
+ver.Text = "v7.3  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
