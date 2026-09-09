@@ -6,6 +6,9 @@ getgenv().CW_AutoSeed = getgenv().CW_AutoSeed or false
 getgenv().CW_AutoReroll = getgenv().CW_AutoReroll or false
 getgenv().CW_Delay = getgenv().CW_Delay or 0.5
 getgenv().CW_Grabbed = getgenv().CW_Grabbed or 0
+getgenv().CW_Gen = (getgenv().CW_Gen or 0) + 1
+local myGen = getgenv().CW_Gen
+print("[CW] loaded, gen " .. tostring(myGen))
 getgenv().CW_Running = true
 getgenv().CW_Farm = getgenv().CW_Farm or false
 getgenv().CW_Rolled = false
@@ -197,7 +200,7 @@ local function shakeOff()
         if hum then cam.CameraSubject = hum end
     end
 end
-if getgenv().CW_AntiShake then shakeOn() end
+if getgenv().CW_AntiShake then pcall(shakeOn) end
 
 local function inAvatar(v)
     local p = v.Parent
@@ -273,7 +276,9 @@ local function lowQOn()
     L.FogEnd = 800
     local T = workspace:FindFirstChildOfClass("Terrain")
     if T then
-        getgenv().CW_LowQSaved.terr = { T.WaterWaveSize, T.WaterWaveSpeed, T.WaterReflectance, T.WaterTransparency, T.Decoration }
+        local dec = true
+        pcall(function() dec = T.Decoration end)
+        getgenv().CW_LowQSaved.terr = { T.WaterWaveSize, T.WaterWaveSpeed, T.WaterReflectance, T.WaterTransparency, dec }
         T.WaterWaveSize = 0
         T.WaterWaveSpeed = 0
         T.WaterReflectance = 0
@@ -326,7 +331,7 @@ local function lowQOff()
     end
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
 end
-if getgenv().CW_LowQ then lowQOn() end
+if getgenv().CW_LowQ then pcall(lowQOn) end
 
 if not getgenv().CW_AFK then
     getgenv().CW_AFK = true
@@ -393,7 +398,7 @@ local function waitSeedsReady()
 end
 
 task.spawn(function()
-    while getgenv().CW_Running do
+    while getgenv().CW_Running and getgenv().CW_Gen == myGen do
         if getgenv().CW_Farm then
             getgenv().CW_Phase = "reroll"
             pcall(doReroll)
@@ -412,7 +417,7 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while getgenv().CW_Running do
+    while getgenv().CW_Running and getgenv().CW_Gen == myGen do
         if getgenv().CW_AutoSeed and not getgenv().CW_Farm then pcall(grabAll) end
         if getgenv().CW_AutoReroll and not getgenv().CW_Farm then pcall(doReroll) end
         pcall(function()
@@ -473,7 +478,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.2  |  no key"
+ver.Text = "v3.3  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
