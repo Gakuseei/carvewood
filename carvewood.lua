@@ -1,4 +1,4 @@
---[[ CarveWood v7.0 | Delta mobile | no login, no key ]]
+--[[ CarveWood v7.1 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -51,7 +51,9 @@ local function fireCollectRemotes()
     if not f then return end
     for _, d in pairs(f:GetChildren()) do
         if d:IsA("RemoteFunction") then
-            pcall(function() d:InvokeServer({}) end)
+            task.spawn(function()
+                pcall(function() d:InvokeServer({}) end)
+            end)
         end
     end
 end
@@ -507,7 +509,7 @@ gui.ResetOnSpawn = false
 gui.Parent = parent
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 440, 0, 300)
+main.Size = UDim2.new(0, 440, 0, 260)
 main.Position = UDim2.new(0.5, -220, 0.5, -150)
 main.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 main.BorderSizePixel = 0
@@ -536,7 +538,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v7.0  |  no key"
+ver.Text = "v7.1  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -643,9 +645,6 @@ afk.Parent = body
 section("PERF", 104)
 toggle("Low Quality", 128, function() return getgenv().CW_LowQ end,
     function(v) getgenv().CW_LowQ = v if v then lowQOn() else lowQOff() end end)
-section("CAMERA", 176)
-toggle("Anti Shake", 200, function() return getgenv().CW_AntiShake end,
-    function(v) getgenv().CW_AntiShake = v if v then shakeOn() else shakeOff() end end)
 
 local foot = Instance.new("TextLabel")
 foot.Name = "CWFoot"
@@ -692,7 +691,7 @@ btnMin.MouseButton1Click:Connect(function()
     body.Visible = not collapsed
     foot.Visible = not collapsed
     btnMin.Text = collapsed and "+" or "–"
-    main.Size = collapsed and UDim2.new(0, 190, 0, 42) or UDim2.new(0, 440, 0, 300)
+    main.Size = collapsed and UDim2.new(0, 190, 0, 42) or UDim2.new(0, 440, 0, 260)
 end)
 btnX.MouseButton1Click:Connect(function()
     getgenv().CW_AutoSeed = false
