@@ -69,6 +69,34 @@ end
 
 local seedList = {}
 local seedSeen = {}
+local active = 0
+local function runCollect(p)
+    active = active + 1
+    task.spawn(function()
+        pcall(collectSeed, p)
+        active = active - 1
+    end)
+end
+
+local function grabAll()
+    local ty = myTycoon()
+    if not ty then return 0 end
+    local n = 0
+    for i = #seedList, 1, -1 do
+        local p = seedList[i]
+        if not p.Parent then
+            table.remove(seedList, i)
+        elseif p.Enabled then
+            n = n + 1
+            runCollect(p)
+        end
+    end
+    local t0 = os.clock()
+    while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
+    return n
+end
+
+local hookedP = {}
 local function seedPrompt(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     local nm = p.Name
@@ -88,74 +116,6 @@ local function trackScan()
         end
     end
 end
-
-local active = 0
-local function runCollect(p)
-    active = active + 1
-    task.spawn(function()
-        local ok = pcall(collectSeed, p)
-        if ok then getgenv().CW_Grabbed = (getgenv().CW_Grabbed or 0) + 1 end
-        active = active - 1
-    end)
-end
-
-local function enabledGrabs()
-    local n = 0
-    for i = #seedList, 1, -1 do
-        local p = seedList[i]
-        if not p.Parent then
-            table.remove(seedList, i)
-            seedSeen[p] = nil
-        elseif p.Enabled then
-            n = n + 1
-        end
-    end
-    return n
-end
-
-local function grabAll()
-    local ty = myTycoon()
-    if not ty then return 0 end
-    pcall(trackScan)
-    local n = 0
-    for i = #seedList, 1, -1 do
-        local p = seedList[i]
-        if not p.Parent then
-            table.remove(seedList, i)
-            seedSeen[p] = nil
-        elseif p.Enabled then
-            n = n + 1
-            runCollect(p)
-        end
-    end
-    local t0 = os.clock()
-    while active > 0 and os.clock() - t0 < 1.5 do task.wait(0.02) end
-    return n
-end
-
-local function collectUntilEmpty(timeout)
-    timeout = timeout or getgenv().CW_CollectTimeout or 12
-    local t0 = os.clock()
-    local calm = 0
-    while os.clock() - t0 < timeout do
-        if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
-        local left = 0
-        pcall(function() left = enabledGrabs() end)
-        if left <= 0 then
-            calm = calm + 1
-            if calm >= (getgenv().CW_SettleNeed or 3) then return true end
-        else
-            calm = 0
-            getgenv().CW_Phase = "collect (" .. left .. ")"
-            pcall(grabAll)
-            if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
-        end
-        task.wait(0.25)
-    end
-    return false
-end
-
-local hookedP = {}
 
 local function watchPrompt(p)
     if hookedP[p] then return end
@@ -458,46 +418,20 @@ task.spawn(function()
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
-            local spawnWait = getgenv().CW_SpawnWait or 6
             local t0 = os.clock()
-            local seen = false
-            while os.clock() - t0 < spawnWait do
+            while os.clock() - t0 < 6 do
                 if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
                 local c = 0
-                pcall(function()
-                    c = enabledGrabs()
-                    if c <= 0 then c = seedCount() end
-                end)
-                if c > 0 then seen = true break end
-                getgenv().CW_Phase = "spawn..."
+                pcall(function() c = seedCount() end)
+                if c > 0 then break end
                 task.wait(0.2)
             end
             if getgenv().CW_Farm then
-                if seen then
-                    task.wait(0.6)
-                    pcall(trackScan)
-                    getgenv().CW_Phase = "collect"
-                    pcall(grabAll)
-                    if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
-                    local cd = getgenv().CW_CollectDelay or 5
-                    local t1 = os.clock()
-                    while os.clock() - t1 < cd do
-                        if not (getgenv().CW_Farm and getgenv().CW_Running) then break end
-                        task.wait(0.5)
-                        if not (getgenv().CW_Farm and getgenv().CW_Running) then break end
-                        local left = 0
-                        pcall(function() left = enabledGrabs() end)
-                        if left > 0 then
-                            getgenv().CW_Phase = "collect (" .. left .. ")"
-                            pcall(grabAll)
-                        else
-                            getgenv().CW_Phase = "warten"
-                        end
-                    end
-                else
-                    getgenv().CW_Phase = "leer"
-                    task.wait(0.5)
-                end
+                getgenv().CW_Phase = "collect"
+                task.wait(0.4)
+                pcall(grabAll)
+                if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
+                task.wait(getgenv().CW_RerollDelay or 0.2)
             end
         else
             task.wait(0.3)
