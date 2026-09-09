@@ -1,4 +1,4 @@
---[[ CarveWood v4.0 | Delta mobile | no login, no key ]]
+--[[ CarveWood v4.1 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -376,6 +376,7 @@ pcall(function()
     local rs = game:GetService("ReplicatedStorage")
     local rr = rs:FindFirstChild("RollResult", true)
     if rr then
+        getgenv().CW_HasRollEvent = true
         rr.OnClientEvent:Connect(function(data)
             if type(data) == "table" then
                 local ty = myTycoon()
@@ -432,11 +433,13 @@ task.spawn(function()
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
-            getgenv().CW_Rolled = false
-            local rt = os.clock()
-            while not getgenv().CW_Rolled and os.clock() - rt < (getgenv().CW_RollTimeout or 1.5) do
-                if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
-                task.wait(0.05)
+            if getgenv().CW_HasRollEvent then
+                getgenv().CW_Rolled = false
+                local rt = os.clock()
+                while not getgenv().CW_Rolled and os.clock() - rt < (getgenv().CW_RollTimeout or 0.5) do
+                    if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
+                    task.wait(0.05)
+                end
             end
             task.wait(getgenv().CW_Settle or 0.25)
             pcall(trackScan)
@@ -540,7 +543,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v4.0  |  no key"
+ver.Text = "v4.1  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
