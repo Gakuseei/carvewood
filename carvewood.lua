@@ -245,6 +245,8 @@ local function stripInst(v)
     end
 end
 local function lowQOn()
+    if getgenv().CW_LowQBusy then return end
+    getgenv().CW_LowQBusy = true
     getgenv().CW_LowQCache = {}
     local L = game:GetService("Lighting")
     if not getgenv().CW_LowQSaved then
@@ -301,19 +303,19 @@ local function lowQOn()
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
     pcall(function() settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.DistanceBased end)
     pcall(function() settings().Rendering.EagerBulkExecution = false end)
+    getgenv().CW_LowQBusy = false
 end
 local function lowQOff()
+    if getgenv().CW_LowQBusy then return end
+    getgenv().CW_LowQBusy = true
     if getgenv().CW_LowQConn then
         getgenv().CW_LowQConn:Disconnect()
         getgenv().CW_LowQConn = nil
     end
-    for _, e in pairs(getgenv().CW_LowQCache or {}) do
-        pcall(function()
-            if e[1] and e[1].Parent then e[1][e[2]] = e[3] end
-        end)
-    end
-    getgenv().CW_LowQCache = {}
     local L = game:GetService("Lighting")
+    for _, v in pairs(L:GetChildren()) do
+        if v:IsA("PostEffect") then v.Enabled = true end
+    end
     local s = getgenv().CW_LowQSaved
     if s then
         L.GlobalShadows = s.shadows
@@ -330,6 +332,18 @@ local function lowQOff()
         end
     end
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
+    local cache = getgenv().CW_LowQCache or {}
+    getgenv().CW_LowQCache = {}
+    task.spawn(function()
+        for i = 1, #cache do
+            local e = cache[i]
+            pcall(function()
+                if e[1] and e[1].Parent then e[1][e[2]] = e[3] end
+            end)
+            if i % 400 == 0 then task.wait() end
+        end
+        getgenv().CW_LowQBusy = false
+    end)
 end
 if getgenv().CW_LowQ then pcall(lowQOn) end
 
@@ -486,7 +500,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.4  |  no key"
+ver.Text = "v3.5  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
