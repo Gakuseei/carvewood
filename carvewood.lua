@@ -1,4 +1,4 @@
---[[ CarveWood v2.5 | Delta mobile | kein login, kein key ]]
+--[[ CarveWood v2.7 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -11,6 +11,8 @@ getgenv().CW_Farm = getgenv().CW_Farm or false
 getgenv().CW_Rolled = false
 getgenv().CW_AntiShake = getgenv().CW_AntiShake or false
 getgenv().CW_LowQ = getgenv().CW_LowQ or false
+getgenv().CW_T0 = os.clock()
+getgenv().CW_Rolls = 0
 
 local function myTycoon()
     local folder = workspace:FindFirstChild("Tycoons")
@@ -133,6 +135,7 @@ local function doReroll()
     for _, d in pairs(reroll:GetDescendants()) do
         if d:IsA("ProximityPrompt") then firePrompt(d) end
     end
+    getgenv().CW_Rolls = (getgenv().CW_Rolls or 0) + 1
 end
 
 local RunService = game:GetService("RunService")
@@ -291,9 +294,13 @@ task.spawn(function()
             local g = ((gethui and gethui()) or game:GetService("CoreGui")):FindFirstChild("CarveWoodUI")
             local f = g and g:FindFirstChild("CWFoot", true)
             if f then
-                local last = tostring(getgenv().CW_Last or "-")
-                local ph = getgenv().CW_Farm and ("[" .. tostring(getgenv().CW_Phase or "-") .. "] ") or ""
-                f.Text = "● " .. ph .. "tries: " .. tostring(getgenv().CW_Tries or 0) .. " | " .. (last:match("[^.]+$") or last)
+                local el = math.floor(os.clock() - (getgenv().CW_T0 or os.clock()))
+                local hh = math.floor(el / 3600)
+                local mm = math.floor((el % 3600) / 60)
+                local ss = el % 60
+                local tstr = hh > 0 and string.format("%d:%02d:%02d", hh, mm, ss)
+                    or string.format("%02d:%02d", mm, ss)
+                f.Text = "Rerolls: " .. tostring(getgenv().CW_Rolls or 0) .. "  |  " .. tstr
             end
         end)
         task.wait(getgenv().CW_Delay)
@@ -340,7 +347,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v2.6  |  no key"
+ver.Text = "v2.7  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -426,7 +433,7 @@ foot.Name = "CWFoot"
 foot.Position = UDim2.new(0, 142, 1, -28)
 foot.Size = UDim2.new(1, -154, 0, 16)
 foot.BackgroundTransparency = 1
-foot.Text = "● ready  |  Tycoon3"
+foot.Text = "Rerolls: 0  |  00:00"
 foot.Font = Enum.Font.Gotham
 foot.TextSize = 11
 foot.TextXAlignment = Enum.TextXAlignment.Left
