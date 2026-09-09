@@ -1,4 +1,4 @@
---[[ CarveWood v7.1 | Delta mobile | no login, no key ]]
+--[[ CarveWood v7.2 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -228,12 +228,7 @@ local function inAvatar(v)
 end
 local function stripInst(v)
     if inAvatar(v) then return end
-    if v:IsA("Decal") or v:IsA("Texture") then
-        if v.Transparency ~= 1 then
-            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Transparency", v.Transparency }
-            v.Transparency = 1
-        end
-    elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire")
+    if v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire")
         or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Beam") then
         if v.Enabled then
             getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
@@ -245,10 +240,6 @@ local function stripInst(v)
             v.RenderFidelity = Enum.RenderFidelity.Performance
         end
     elseif v:IsA("BasePart") then
-        if v.Material ~= Enum.Material.SmoothPlastic then
-            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Material", v.Material }
-            v.Material = Enum.Material.SmoothPlastic
-        end
         if v.CastShadow then
             getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "CastShadow", true }
             v.CastShadow = false
@@ -256,7 +247,7 @@ local function stripInst(v)
     end
 end
 local function lowQOn()
-    if getgenv().CW_LowQBusy then return end
+    if getgenv().CW_LowQBusy or getgenv().CW_LowQConn then return end
     getgenv().CW_LowQBusy = true
     getgenv().CW_LowQCache = {}
     local L = game:GetService("Lighting")
@@ -264,29 +255,14 @@ local function lowQOn()
         getgenv().CW_LowQSaved = { shadows = L.GlobalShadows }
     end
     L.GlobalShadows = false
-    pcall(function() L.Technology = Enum.Technology.Compatibility end)
     for _, v in pairs(L:GetChildren()) do
-        if v:IsA("PostEffect") then
-            if v.Enabled then
-                getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
-                v.Enabled = false
-            end
-        elseif v:IsA("Atmosphere") then
-            if v.Density ~= 0 then
-                getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Density", v.Density }
-                v.Density = 0
-            end
-        elseif v:IsA("Clouds") then
+        if v:IsA("Clouds") then
             if v.Enabled then
                 getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
                 v.Enabled = false
             end
         end
     end
-    if not getgenv().CW_LowQSaved.fog then
-        getgenv().CW_LowQSaved.fog = L.FogEnd
-    end
-    L.FogEnd = 800
     local T = workspace:FindFirstChildOfClass("Terrain")
     if T then
         local dec = true
@@ -304,7 +280,7 @@ local function lowQOn()
         for i = 1, #all do
             if not getgenv().CW_LowQ then break end
             pcall(stripInst, all[i])
-            if i % 400 == 0 then task.wait() end
+            if i % 200 == 0 then task.wait() end
         end
     end)
     if getgenv().CW_LowQConn then getgenv().CW_LowQConn:Disconnect() end
@@ -313,7 +289,6 @@ local function lowQOn()
     end)
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
     pcall(function() settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.DistanceBased end)
-    pcall(function() settings().Rendering.EagerBulkExecution = false end)
     getgenv().CW_LowQBusy = false
 end
 local function lowQOff()
@@ -324,9 +299,6 @@ local function lowQOff()
         getgenv().CW_LowQConn = nil
     end
     local L = game:GetService("Lighting")
-    for _, v in pairs(L:GetChildren()) do
-        if v:IsA("PostEffect") then v.Enabled = true end
-    end
     local s = getgenv().CW_LowQSaved
     if s then
         L.GlobalShadows = s.shadows
@@ -538,7 +510,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v7.1  |  no key"
+ver.Text = "v7.2  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
