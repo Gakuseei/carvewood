@@ -178,12 +178,33 @@ local function shakeOff()
 end
 if getgenv().CW_AntiShake then shakeOn() end
 
+local function stripInst(v)
+    if v:IsA("Decal") or v:IsA("Texture") then
+        if v.Transparency ~= 1 then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Transparency", v.Transparency }
+            v.Transparency = 1
+        end
+    elseif v:IsA("ParticleEmitter") or v:IsA("Trail") or v:IsA("Fire")
+        or v:IsA("Smoke") or v:IsA("Sparkles") or v:IsA("Beam") then
+        if v.Enabled then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
+            v.Enabled = false
+        end
+    elseif v:IsA("MeshPart") then
+        if v.RenderFidelity ~= Enum.RenderFidelity.Performance then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "RenderFidelity", v.RenderFidelity }
+            v.RenderFidelity = Enum.RenderFidelity.Performance
+        end
+    end
+end
 local function lowQOn()
+    getgenv().CW_LowQCache = {}
     local L = game:GetService("Lighting")
     if not getgenv().CW_LowQSaved then
         getgenv().CW_LowQSaved = { shadows = L.GlobalShadows }
     end
     L.GlobalShadows = false
+    pcall(function() L.Technology = Enum.Technology.Compatibility end)
     for _, v in pairs(L:GetChildren()) do
         if v:IsA("PostEffect") then v.Enabled = false end
     end
@@ -193,10 +214,28 @@ local function lowQOn()
         T.WaterWaveSpeed = 0
         T.WaterReflectance = 0
         T.WaterTransparency = 1
+        pcall(function() T.Decoration = false end)
     end
+    for _, v in pairs(workspace:GetDescendants()) do
+        pcall(stripInst, v)
+    end
+    if getgenv().CW_LowQConn then getgenv().CW_LowQConn:Disconnect() end
+    getgenv().CW_LowQConn = workspace.DescendantAdded:Connect(function(v)
+        if getgenv().CW_LowQ then pcall(stripInst, v) end
+    end)
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
 end
 local function lowQOff()
+    if getgenv().CW_LowQConn then
+        getgenv().CW_LowQConn:Disconnect()
+        getgenv().CW_LowQConn = nil
+    end
+    for _, e in pairs(getgenv().CW_LowQCache or {}) do
+        pcall(function()
+            if e[1] and e[1].Parent then e[1][e[2]] = e[3] end
+        end)
+    end
+    getgenv().CW_LowQCache = {}
     local L = game:GetService("Lighting")
     local s = getgenv().CW_LowQSaved
     if s then L.GlobalShadows = s.shadows end
@@ -349,7 +388,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v2.8  |  no key"
+ver.Text = "v2.9  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
