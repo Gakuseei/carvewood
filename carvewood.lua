@@ -16,14 +16,23 @@ getgenv().CW_FarmTime = 0
 getgenv().CW_FarmSince = nil
 getgenv().CW_Frenzy = getgenv().CW_Frenzy or false
 
+local cachedTy = nil
 local function myTycoon()
+    if cachedTy and cachedTy.Parent then
+        local ok, mine = pcall(function()
+            local o = cachedTy:FindFirstChild("Owner", true)
+            return o and tostring(o.Value) == LP.Name
+        end)
+        if ok and mine then return cachedTy end
+    end
     local folder = workspace:FindFirstChild("Tycoons")
     if not folder then return nil end
     for _, t in pairs(folder:GetChildren()) do
         local o = t:FindFirstChild("Owner", true)
-        if o and tostring(o.Value) == LP.Name then return t end
+        if o and tostring(o.Value) == LP.Name then cachedTy = t return t end
     end
-    return folder:FindFirstChild("Tycoon3")
+    cachedTy = folder:FindFirstChild("Tycoon3")
+    return cachedTy
 end
 
 local function firePrompt(p)
@@ -190,7 +199,21 @@ local function shakeOff()
 end
 if getgenv().CW_AntiShake then shakeOn() end
 
+local function inAvatar(v)
+    local p = v.Parent
+    while p and p ~= workspace do
+        if p:IsA("Model") then
+            for _, pl in pairs(game:GetService("Players"):GetPlayers()) do
+                if pl.Character == p then return true end
+            end
+            return false
+        end
+        p = p.Parent
+    end
+    return false
+end
 local function stripInst(v)
+    if inAvatar(v) then return end
     if v:IsA("Decal") or v:IsA("Texture") then
         if v.Transparency ~= 1 then
             getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Transparency", v.Transparency }
@@ -207,6 +230,15 @@ local function stripInst(v)
             getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "RenderFidelity", v.RenderFidelity }
             v.RenderFidelity = Enum.RenderFidelity.Performance
         end
+    elseif v:IsA("BasePart") then
+        if v.Material ~= Enum.Material.SmoothPlastic then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Material", v.Material }
+            v.Material = Enum.Material.SmoothPlastic
+        end
+        if v.CastShadow then
+            getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "CastShadow", true }
+            v.CastShadow = false
+        end
     end
 end
 local function lowQOn()
@@ -218,24 +250,52 @@ local function lowQOn()
     L.GlobalShadows = false
     pcall(function() L.Technology = Enum.Technology.Compatibility end)
     for _, v in pairs(L:GetChildren()) do
-        if v:IsA("PostEffect") then v.Enabled = false end
+        if v:IsA("PostEffect") then
+            if v.Enabled then
+                getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
+                v.Enabled = false
+            end
+        elseif v:IsA("Atmosphere") then
+            if v.Density ~= 0 then
+                getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Density", v.Density }
+                v.Density = 0
+            end
+        elseif v:IsA("Clouds") then
+            if v.Enabled then
+                getgenv().CW_LowQCache[#getgenv().CW_LowQCache + 1] = { v, "Enabled", true }
+                v.Enabled = false
+            end
+        end
     end
+    if not getgenv().CW_LowQSaved.fog then
+        getgenv().CW_LowQSaved.fog = L.FogEnd
+    end
+    L.FogEnd = 800
     local T = workspace:FindFirstChildOfClass("Terrain")
     if T then
+        getgenv().CW_LowQSaved.terr = { T.WaterWaveSize, T.WaterWaveSpeed, T.WaterReflectance, T.WaterTransparency, T.Decoration }
         T.WaterWaveSize = 0
         T.WaterWaveSpeed = 0
         T.WaterReflectance = 0
         T.WaterTransparency = 1
         pcall(function() T.Decoration = false end)
     end
-    for _, v in pairs(workspace:GetDescendants()) do
-        pcall(stripInst, v)
-    end
+    task.spawn(function()
+        local all = {}
+        pcall(function() all = workspace:GetDescendants() end)
+        for i = 1, #all do
+            if not getgenv().CW_LowQ then break end
+            pcall(stripInst, all[i])
+            if i % 400 == 0 then task.wait() end
+        end
+    end)
     if getgenv().CW_LowQConn then getgenv().CW_LowQConn:Disconnect() end
     getgenv().CW_LowQConn = workspace.DescendantAdded:Connect(function(v)
         if getgenv().CW_LowQ then pcall(stripInst, v) end
     end)
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+    pcall(function() settings().Rendering.MeshPartDetailLevel = Enum.MeshPartDetailLevel.DistanceBased end)
+    pcall(function() settings().Rendering.EagerBulkExecution = false end)
 end
 local function lowQOff()
     if getgenv().CW_LowQConn then
@@ -250,9 +310,19 @@ local function lowQOff()
     getgenv().CW_LowQCache = {}
     local L = game:GetService("Lighting")
     local s = getgenv().CW_LowQSaved
-    if s then L.GlobalShadows = s.shadows end
-    for _, v in pairs(L:GetChildren()) do
-        if v:IsA("PostEffect") then v.Enabled = true end
+    if s then
+        L.GlobalShadows = s.shadows
+        if s.fog then L.FogEnd = s.fog end
+        if s.terr then
+            local T = workspace:FindFirstChildOfClass("Terrain")
+            if T then
+                T.WaterWaveSize = s.terr[1]
+                T.WaterWaveSpeed = s.terr[2]
+                T.WaterReflectance = s.terr[3]
+                T.WaterTransparency = s.terr[4]
+                pcall(function() T.Decoration = s.terr[5] end)
+            end
+        end
     end
     pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
 end
@@ -403,7 +473,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.1  |  no key"
+ver.Text = "v3.2  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -485,6 +555,16 @@ toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
     end)
 toggle("Auto Frenzy", 56, function() return getgenv().CW_Frenzy end,
     function(v) getgenv().CW_Frenzy = v end)
+local afk = Instance.new("TextLabel")
+afk.Position = UDim2.new(0, 0, 0, 88)
+afk.Size = UDim2.new(1, 0, 0, 14)
+afk.BackgroundTransparency = 1
+afk.Text = "AntiAFK always on"
+afk.Font = Enum.Font.Gotham
+afk.TextSize = 11
+afk.TextXAlignment = Enum.TextXAlignment.Left
+afk.TextColor3 = Color3.fromRGB(110, 200, 130)
+afk.Parent = body
 
 section("PERF", 104)
 toggle("Low Quality", 128, function() return getgenv().CW_LowQ end,
