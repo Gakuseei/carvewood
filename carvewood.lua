@@ -10,6 +10,7 @@ getgenv().CW_Running = true
 getgenv().CW_Farm = getgenv().CW_Farm or false
 getgenv().CW_Rolled = false
 getgenv().CW_AntiShake = getgenv().CW_AntiShake or false
+getgenv().CW_LowQ = getgenv().CW_LowQ or false
 
 local function myTycoon()
     local folder = workspace:FindFirstChild("Tycoons")
@@ -39,7 +40,7 @@ local function fireCollectRemotes()
     end
 end
 
-local function collectSeed(p)
+local function collectSeed(p, noInvoke)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     if not p.Enabled then return false end
     local nm = p.Name
@@ -47,15 +48,15 @@ local function collectSeed(p)
     getgenv().CW_Tries = (getgenv().CW_Tries or 0) + 1
     pcall(function() getgenv().CW_Last = p:GetFullName() end)
     pcall(function() fireproximityprompt(p) end)
-    pcall(fireCollectRemotes)
+    if not noInvoke then pcall(fireCollectRemotes) end
     return true
 end
 
 local active = 0
-local function runCollect(p)
+local function runCollect(p, noInvoke)
     active = active + 1
     task.spawn(function()
-        pcall(collectSeed, p)
+        pcall(collectSeed, p, noInvoke)
         active = active - 1
     end)
 end
@@ -69,12 +70,18 @@ local function grabAll()
             local nm = d.Name
             if string.find(nm, "Grab", 1, true) or string.find(nm, "Collect", 1, true) then
                 n = n + 1
-                runCollect(d)
+                runCollect(d, true)
             end
         end
     end
     local t0 = os.clock()
-    while active > 0 and os.clock() - t0 < 1 do task.wait(0.05) end
+    while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
+    if n > 0 then
+        task.wait(0.1)
+        pcall(fireCollectRemotes)
+        task.wait(0.1)
+        pcall(fireCollectRemotes)
+    end
     return n
 end
 
@@ -166,6 +173,46 @@ local function shakeOff()
     end
 end
 if getgenv().CW_AntiShake then shakeOn() end
+
+local function lowQOn()
+    local L = game:GetService("Lighting")
+    if not getgenv().CW_LowQSaved then
+        getgenv().CW_LowQSaved = { shadows = L.GlobalShadows }
+    end
+    L.GlobalShadows = false
+    for _, v in pairs(L:GetChildren()) do
+        if v:IsA("PostEffect") then v.Enabled = false end
+    end
+    local T = workspace:FindFirstChildOfClass("Terrain")
+    if T then
+        T.WaterWaveSize = 0
+        T.WaterWaveSpeed = 0
+        T.WaterReflectance = 0
+        T.WaterTransparency = 1
+    end
+    pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+end
+local function lowQOff()
+    local L = game:GetService("Lighting")
+    local s = getgenv().CW_LowQSaved
+    if s then L.GlobalShadows = s.shadows end
+    for _, v in pairs(L:GetChildren()) do
+        if v:IsA("PostEffect") then v.Enabled = true end
+    end
+    pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic end)
+end
+if getgenv().CW_LowQ then lowQOn() end
+
+if not getgenv().CW_AFK then
+    getgenv().CW_AFK = true
+    pcall(function()
+        local VU = game:GetService("VirtualUser")
+        LP.Idled:Connect(function()
+            VU:CaptureController()
+            VU:ClickButton2(Vector2.new())
+        end)
+    end)
+end
 
 pcall(function()
     local rs = game:GetService("ReplicatedStorage")
@@ -264,8 +311,8 @@ gui.ResetOnSpawn = false
 gui.Parent = parent
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 440, 0, 340)
-main.Position = UDim2.new(0.5, -220, 0.5, -170)
+main.Size = UDim2.new(0, 440, 0, 260)
+main.Position = UDim2.new(0.5, -220, 0.5, -130)
 main.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
 main.BorderSizePixel = 0
 main.Active = true
@@ -293,7 +340,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v2.5  |  no key"
+ver.Text = "v2.6  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -363,71 +410,15 @@ local function toggle(text, y, get, set)
     paint()
 end
 
-section("SEEDS", 0)
-toggle("Auto Grab Seeds", 24, function() return getgenv().CW_AutoSeed end,
-    function(v) getgenv().CW_AutoSeed = v end)
-toggle("Auto Reroll Lever", 60, function() return getgenv().CW_AutoReroll end,
-    function(v) getgenv().CW_AutoReroll = v end)
-toggle("Auto Farm (loop)", 96, function() return getgenv().CW_Farm end,
+section("FARM", 0)
+toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
     function(v) getgenv().CW_Farm = v end)
 
-section("SPEED", 140)
-local dRow = Instance.new("Frame")
-dRow.Position = UDim2.new(0, 0, 0, 164)
-dRow.Size = UDim2.new(1, 0, 0, 32)
-dRow.BackgroundTransparency = 1
-dRow.Parent = body
-local dLabel = Instance.new("TextLabel")
-dLabel.Size = UDim2.new(1, -110, 1, 0)
-dLabel.BackgroundTransparency = 1
-dLabel.Text = "Delay"
-dLabel.Font = Enum.Font.Gotham
-dLabel.TextSize = 13
-dLabel.TextXAlignment = Enum.TextXAlignment.Left
-dLabel.TextColor3 = Color3.fromRGB(225, 225, 235)
-dLabel.Parent = dRow
-local dVal = Instance.new("TextLabel")
-dVal.Position = UDim2.new(1, -110, 0, 0)
-dVal.Size = UDim2.new(0, 44, 1, 0)
-dVal.BackgroundTransparency = 1
-dVal.Text = string.format("%.1fs", getgenv().CW_Delay)
-dVal.Font = Enum.Font.Gotham
-dVal.TextSize = 13
-dVal.TextColor3 = Color3.fromRGB(150, 180, 255)
-dVal.Parent = dRow
-local minus = Instance.new("TextButton")
-minus.Position = UDim2.new(1, -62, 0.5, -11)
-minus.Size = UDim2.new(0, 28, 0, 22)
-minus.Text = "-"
-minus.Font = Enum.Font.GothamBold
-minus.TextSize = 14
-minus.TextColor3 = Color3.fromRGB(235, 235, 245)
-minus.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-minus.BorderSizePixel = 0
-minus.Parent = dRow
-Instance.new("UICorner", minus).CornerRadius = UDim.new(0, 6)
-local plus = Instance.new("TextButton")
-plus.Position = UDim2.new(1, -30, 0.5, -11)
-plus.Size = UDim2.new(0, 28, 0, 22)
-plus.Text = "+"
-plus.Font = Enum.Font.GothamBold
-plus.TextSize = 14
-plus.TextColor3 = Color3.fromRGB(235, 235, 245)
-plus.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-plus.BorderSizePixel = 0
-plus.Parent = dRow
-Instance.new("UICorner", plus).CornerRadius = UDim.new(0, 6)
-minus.MouseButton1Click:Connect(function()
-    getgenv().CW_Delay = math.clamp(getgenv().CW_Delay - 0.1, 0.1, 5)
-    dVal.Text = string.format("%.1fs", getgenv().CW_Delay)
-end)
-plus.MouseButton1Click:Connect(function()
-    getgenv().CW_Delay = math.clamp(getgenv().CW_Delay + 0.1, 0.1, 5)
-    dVal.Text = string.format("%.1fs", getgenv().CW_Delay)
-end)
-
-section("CAMERA", 212)
-toggle("Anti Shake", 236, function() return getgenv().CW_AntiShake end,
+section("PERF", 72)
+toggle("Low Quality", 96, function() return getgenv().CW_LowQ end,
+    function(v) getgenv().CW_LowQ = v if v then lowQOn() else lowQOff() end end)
+section("CAMERA", 144)
+toggle("Anti Shake", 168, function() return getgenv().CW_AntiShake end,
     function(v) getgenv().CW_AntiShake = v if v then shakeOn() else shakeOff() end end)
 
 local foot = Instance.new("TextLabel")
@@ -481,7 +472,9 @@ btnX.MouseButton1Click:Connect(function()
     getgenv().CW_AutoSeed = false
     getgenv().CW_AutoReroll = false
     getgenv().CW_AntiShake = false
+    getgenv().CW_Farm = false
     getgenv().CW_Running = false
     pcall(shakeOff)
+    if getgenv().CW_LowQ then getgenv().CW_LowQ = false pcall(lowQOff) end
     gui:Destroy()
 end)
