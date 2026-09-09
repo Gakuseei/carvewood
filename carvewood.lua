@@ -1,4 +1,4 @@
---[[ CarveWood v3.9 | Delta mobile | no login, no key ]]
+--[[ CarveWood v4.0 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -432,7 +432,13 @@ task.spawn(function()
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
-            task.wait(getgenv().CW_Settle or 0.7)
+            getgenv().CW_Rolled = false
+            local rt = os.clock()
+            while not getgenv().CW_Rolled and os.clock() - rt < (getgenv().CW_RollTimeout or 1.5) do
+                if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
+                task.wait(0.05)
+            end
+            task.wait(getgenv().CW_Settle or 0.25)
             pcall(trackScan)
             local t0 = os.clock()
             while os.clock() - t0 < 6 do
@@ -456,14 +462,14 @@ task.spawn(function()
                     pcall(function() left = grabsLeft() end)
                     if left <= 0 then
                         calm = calm + 1
-                        if calm >= 3 then break end
+                        if calm >= 2 then break end
                     else
                         calm = 0
                         getgenv().CW_Phase = "collect (" .. left .. ")"
                         pcall(grabAll)
                         if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
                     end
-                    task.wait(0.15)
+                    task.wait(0.1)
                 end
             end
         else
@@ -534,7 +540,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.9  |  no key"
+ver.Text = "v4.0  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
