@@ -68,21 +68,20 @@ local function grabAll()
     local ty = myTycoon()
     if not ty then return 0 end
     local n = 0
-    for _, d in pairs(ty:GetDescendants()) do
-        if d:IsA("ProximityPrompt") and d.Enabled then
-            local nm = d.Name
-            if string.find(nm, "Grab", 1, true) or string.find(nm, "Collect", 1, true) then
-                n = n + 1
-                runCollect(d, true)
-            end
+    for i = #seedList, 1, -1 do
+        local p = seedList[i]
+        if not p.Parent then
+            table.remove(seedList, i)
+        elseif p.Enabled then
+            n = n + 1
+            runCollect(p, true)
         end
     end
     local t0 = os.clock()
     while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
     if n > 0 then
-        task.wait(0.1)
         pcall(fireCollectRemotes)
-        task.wait(0.1)
+        task.wait(0.05)
         pcall(fireCollectRemotes)
     end
     return n
@@ -93,6 +92,22 @@ local function seedPrompt(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     local nm = p.Name
     return string.find(nm, "Grab", 1, true) ~= nil or string.find(nm, "Collect", 1, true) ~= nil
+end
+local seedList = {}
+local seedSeen = {}
+local function trackPrompt(p)
+    if seedPrompt(p) and not seedSeen[p] then
+        seedSeen[p] = true
+        seedList[#seedList + 1] = p
+    end
+end
+local function trackScan()
+    local ty = myTycoon()
+    if ty then
+        for _, d in pairs(ty:GetDescendants()) do
+            trackPrompt(d)
+        end
+    end
 end
 
 local function watchPrompt(p)
@@ -111,10 +126,12 @@ end
 
 local function hookTycoon(ty)
     for _, d in pairs(ty:GetDescendants()) do
+        trackPrompt(d)
         if seedPrompt(d) then watchPrompt(d) end
     end
     ty.DescendantAdded:Connect(function(d)
         pcall(function()
+            trackPrompt(d)
             if seedPrompt(d) then watchPrompt(d) end
         end)
     end)
@@ -315,6 +332,8 @@ task.spawn(function()
         if getgenv().CW_Farm then
             getgenv().CW_Phase = "reroll"
             pcall(doReroll)
+            getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
+            if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
             task.wait(1)
             if getgenv().CW_Farm then
                 getgenv().CW_Phase = "collect"
@@ -388,7 +407,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v2.9  |  no key"
+ver.Text = "v3.0  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
