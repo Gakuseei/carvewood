@@ -11,8 +11,9 @@ getgenv().CW_Farm = getgenv().CW_Farm or false
 getgenv().CW_Rolled = false
 getgenv().CW_AntiShake = getgenv().CW_AntiShake or false
 getgenv().CW_LowQ = getgenv().CW_LowQ or false
-getgenv().CW_T0 = os.clock()
 getgenv().CW_Rolls = 0
+getgenv().CW_FarmTime = 0
+getgenv().CW_FarmSince = nil
 
 local function myTycoon()
     local folder = workspace:FindFirstChild("Tycoons")
@@ -294,7 +295,8 @@ task.spawn(function()
             local g = ((gethui and gethui()) or game:GetService("CoreGui")):FindFirstChild("CarveWoodUI")
             local f = g and g:FindFirstChild("CWFoot", true)
             if f then
-                local el = math.floor(os.clock() - (getgenv().CW_T0 or os.clock()))
+                local el = math.floor((getgenv().CW_FarmTime or 0)
+                    + (getgenv().CW_FarmSince and (os.clock() - getgenv().CW_FarmSince) or 0))
                 local hh = math.floor(el / 3600)
                 local mm = math.floor((el % 3600) / 60)
                 local ss = el % 60
@@ -347,7 +349,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v2.7  |  no key"
+ver.Text = "v2.8  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
@@ -419,7 +421,14 @@ end
 
 section("FARM", 0)
 toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
-    function(v) getgenv().CW_Farm = v end)
+    function(v)
+        if v then getgenv().CW_FarmSince = os.clock()
+        elseif getgenv().CW_FarmSince then
+            getgenv().CW_FarmTime = (getgenv().CW_FarmTime or 0) + (os.clock() - getgenv().CW_FarmSince)
+            getgenv().CW_FarmSince = nil
+        end
+        getgenv().CW_Farm = v
+    end)
 
 section("PERF", 72)
 toggle("Low Quality", 96, function() return getgenv().CW_LowQ end,
