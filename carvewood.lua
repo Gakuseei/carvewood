@@ -1,4 +1,4 @@
---[[ CarveWood v3.6 | Delta mobile | no login, no key ]]
+--[[ CarveWood v3.7 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -477,16 +477,26 @@ task.spawn(function()
                     task.wait(0.6)
                     pcall(trackScan)
                     getgenv().CW_Phase = "collect"
-                    pcall(collectUntilEmpty, getgenv().CW_CollectTimeout or 12)
+                    pcall(grabAll)
+                    if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
+                    local cd = getgenv().CW_CollectDelay or 5
+                    local t1 = os.clock()
+                    while os.clock() - t1 < cd do
+                        if not (getgenv().CW_Farm and getgenv().CW_Running) then break end
+                        task.wait(0.5)
+                        if not (getgenv().CW_Farm and getgenv().CW_Running) then break end
+                        local left = 0
+                        pcall(function() left = enabledGrabs() end)
+                        if left > 0 then
+                            getgenv().CW_Phase = "collect (" .. left .. ")"
+                            pcall(grabAll)
+                        else
+                            getgenv().CW_Phase = "warten"
+                        end
+                    end
                 else
                     getgenv().CW_Phase = "leer"
                     task.wait(0.5)
-                end
-                local nd = getgenv().CW_NextDelay or 1.0
-                local t1 = os.clock()
-                while os.clock() - t1 < nd do
-                    if not (getgenv().CW_Farm and getgenv().CW_Running) then break end
-                    task.wait(0.1)
                 end
             end
         else
@@ -557,7 +567,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v3.6  |  no key"
+ver.Text = "v3.7  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
