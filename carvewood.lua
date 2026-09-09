@@ -1,4 +1,4 @@
---[[ CarveWood v4.1 | Delta mobile | no login, no key ]]
+--[[ CarveWood v5.0 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -374,7 +374,16 @@ end
 
 pcall(function()
     local rs = game:GetService("ReplicatedStorage")
-    local rr = rs:FindFirstChild("RollResult", true)
+    local function findEv(n)
+        local f = rs:FindFirstChild("SeedReroll", true)
+        if f then
+            local e = f:FindFirstChild(n)
+            if e then return e end
+        end
+        return rs:FindFirstChild(n, true)
+    end
+    local rr = findEv("RollResult")
+    local started = findEv("RollStarted")
     if rr then
         getgenv().CW_HasRollEvent = true
         rr.OnClientEvent:Connect(function(data)
@@ -383,9 +392,20 @@ pcall(function()
                 local tn = ty and ty.Name or ""
                 if (data.TycoonName ~= nil and data.TycoonName == tn)
                     or (data.TriggeredByUserId ~= nil and data.TriggeredByUserId == LP.UserId) then
-                    getgenv().CW_Rolled = true
+                    local rv = tonumber(data.RollVersion) or 0
+                    if rv >= (getgenv().CW_RollVersion or 0) then
+                        getgenv().CW_RollVersion = rv
+                        getgenv().CW_Need = tonumber(data.Count) or #(data.Results or {})
+                        getgenv().CW_Rolled = true
+                        getgenv().CW_TResult = os.clock()
+                    end
                 end
             end
+        end)
+    end
+    if started then
+        started.OnClientEvent:Connect(function()
+            getgenv().CW_TStarted = os.clock()
         end)
     end
 end)
@@ -430,18 +450,19 @@ task.spawn(function()
     while getgenv().CW_Running and getgenv().CW_Gen == myGen do
         if getgenv().CW_Farm then
             getgenv().CW_Phase = "reroll"
+            getgenv().CW_TFire = os.clock()
             pcall(doReroll)
             getgenv().CW_Cycles = (getgenv().CW_Cycles or 0) + 1
             if getgenv().CW_Cycles % 20 == 0 then pcall(trackScan) end
-            if getgenv().CW_HasRollEvent then
-                getgenv().CW_Rolled = false
-                local rt = os.clock()
-                while not getgenv().CW_Rolled and os.clock() - rt < (getgenv().CW_RollTimeout or 0.5) do
-                    if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
-                    task.wait(0.05)
-                end
+            getgenv().CW_Rolled = false
+            getgenv().CW_Need = 0
+            local rt = os.clock()
+            local rollCap = getgenv().CW_HasRollEvent and (getgenv().CW_RollTimeout or 3) or 0.2
+            while not getgenv().CW_Rolled and os.clock() - rt < rollCap do
+                if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
+                task.wait(0.05)
             end
-            task.wait(getgenv().CW_Settle or 0.25)
+            task.wait(getgenv().CW_Settle or 0.2)
             pcall(trackScan)
             local t0 = os.clock()
             while os.clock() - t0 < 6 do
@@ -457,15 +478,23 @@ task.spawn(function()
                 pcall(grabAll)
                 if getgenv().CW_Frenzy then pcall(fireCollectRemotes) end
                 local cap = getgenv().CW_CollectCap or 5
+                local need = getgenv().CW_Need or 0
+                local maxSeen = 0
                 local t1 = os.clock()
                 local calm = 0
                 while os.clock() - t1 < cap do
                     if not (getgenv().CW_Farm and getgenv().CW_Running and getgenv().CW_Gen == myGen) then break end
                     local left = 0
                     pcall(function() left = grabsLeft() end)
+                    if left > maxSeen then maxSeen = left end
                     if left <= 0 then
-                        calm = calm + 1
-                        if calm >= 2 then break end
+                        if need > 0 and maxSeen < need then
+                            calm = 0
+                            getgenv().CW_Phase = "welle? (" .. maxSeen .. "/" .. need .. ")"
+                        else
+                            calm = calm + 1
+                            if calm >= 2 then break end
+                        end
                     else
                         calm = 0
                         getgenv().CW_Phase = "collect (" .. left .. ")"
@@ -474,6 +503,10 @@ task.spawn(function()
                     end
                     task.wait(0.1)
                 end
+                local tF = getgenv().CW_TFire or t1
+                local tS = getgenv().CW_TStarted or tF
+                local tR = getgenv().CW_TResult or tS
+                getgenv().CW_LastBreak = string.format("srv %.1f coll %.1f", tR - tF, os.clock() - tR)
             end
         else
             task.wait(0.3)
@@ -496,7 +529,8 @@ task.spawn(function()
                 local ss = el % 60
                 local tstr = hh > 0 and string.format("%d:%02d:%02d", hh, mm, ss)
                     or string.format("%02d:%02d", mm, ss)
-                f.Text = "Rerolls: " .. tostring(getgenv().CW_Rolls or 0) .. "  |  " .. tstr
+                local brk = getgenv().CW_LastBreak or ""
+                f.Text = "Rerolls: " .. tostring(getgenv().CW_Rolls or 0) .. "  |  " .. tstr .. (brk ~= "" and "  |  " .. brk or "")
             end
         end)
         task.wait(getgenv().CW_Delay)
@@ -543,7 +577,7 @@ local ver = Instance.new("TextLabel")
 ver.Size = UDim2.new(1, 0, 0, 16)
 ver.Position = UDim2.new(0, 0, 0, 40)
 ver.BackgroundTransparency = 1
-ver.Text = "v4.1  |  no key"
+ver.Text = "v5.0  |  no key"
 ver.Font = Enum.Font.Gotham
 ver.TextSize = 11
 ver.TextColor3 = Color3.fromRGB(130, 130, 150)
