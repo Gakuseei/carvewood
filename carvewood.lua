@@ -1,4 +1,4 @@
---[[ CarveWood v9.0 | Delta mobile | no login, no key ]]
+--[[ CarveWood v9.1 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -15,6 +15,12 @@ getgenv().CW_Rolls = 0
 getgenv().CW_FarmTime = 0
 getgenv().CW_FarmSince = nil
 getgenv().CW_Frenzy = getgenv().CW_Frenzy or false
+getgenv().CW_CollectCan = getgenv().CW_CollectCan or false
+getgenv().CW_CollectFert = getgenv().CW_CollectFert or false
+getgenv().CW_Trees = getgenv().CW_Trees or false
+getgenv().CW_Prio1 = getgenv().CW_Prio1 or "Hyperwave"
+getgenv().CW_Prio2 = getgenv().CW_Prio2 or "Voidstar"
+getgenv().CW_Prio3 = getgenv().CW_Prio3 or "Birch"
 
 local cachedTy = nil
 local function myTycoon()
@@ -85,6 +91,7 @@ local function collectSeed(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     if not p.Enabled then return false end
     local nm = p.Name
+    if nm == "CollectWateringCanPrompt" or nm == "CollectCompostFertilizerPrompt" then return false end
     if not (string.find(nm, "Grab", 1, true) or string.find(nm, "Collect", 1, true)) then return false end
     pcall(function() fireproximityprompt(p) end)
     return true
@@ -134,6 +141,7 @@ end
 seedPrompt = function(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     local nm = p.Name
+    if nm == "CollectWateringCanPrompt" or nm == "CollectCompostFertilizerPrompt" then return false end
     return string.find(nm, "Grab", 1, true) ~= nil or string.find(nm, "Collect", 1, true) ~= nil
 end
 trackPrompt = function(p)
@@ -167,6 +175,460 @@ local function hookAll()
     if ty then pcall(hookTycoon, ty) end
 end
 pcall(hookAll)
+
+--[[ Feature 1: AutoCollect maxed-ready, parallel zu AutoFarm Seeds ]]
+local CW_CAN_MAX_STAGE = 9
+local CW_CAN_MAX_MULT = 256
+local CW_CAN_FREE_LIMIT = 5
+local CW_FERT_MAX_ITEM = "DiamondFertilizer"
+local CW_FERT_MAX_STAGE = 4
+
+local function countWateringCans(targetMult)
+    local needle = targetMult and ("Watering Can [" .. tostring(targetMult) .. "x]") or "Watering Can"
+    local n = 0
+    pcall(function()
+        for _, t in ipairs(LP.Backpack:GetChildren()) do
+            if typeof(t) == "Instance" and string.find(t.Name, needle, 1, true) then n = n + 1 end
+        end
+        local ch = LP.Character
+        if ch then
+            for _, t in ipairs(ch:GetChildren()) do
+                if t:IsA("Tool") and string.find(t.Name, needle, 1, true) then n = n + 1 end
+            end
+        end
+    end)
+    return n
+end
+
+local function hrp()
+    local ch = LP.Character
+    local h = ch and ch:FindFirstChild("HumanoidRootPart")
+    if h and h:IsA("BasePart") then return h end
+    return nil
+end
+
+-- Teleport zum Prompt, einsammeln, zurück. Nötig weil
+-- WaterTower/CompostBin serverseitig Distanz validieren (PickupValidationPadding).
+local function tpCollect(prompt)
+    local h = hrp()
+    if not h or typeof(prompt) ~= "Instance" or not prompt:IsA("ProximityPrompt") then return false end
+    local anchor = prompt.Parent
+    if not anchor then return false end
+    local wp
+    local ok = pcall(function()
+        if anchor:IsA("Attachment") then wp = anchor.WorldPosition
+        elseif anchor:IsA("BasePart") then wp = anchor.Position
+        else wp = anchor:GetPivot().Position end
+    end)
+    if not ok or typeof(wp) ~= "Vector3" then return false end
+    local save = h.CFrame
+    pcall(function() h.CFrame = CFrame.new(wp + Vector3.new(3, 2, 3)) end)
+    task.wait(0.35)
+    if prompt.Enabled then pcall(function() fireproximityprompt(prompt) end) end
+    task.wait(0.7)
+    pcall(function() h.CFrame = save end)
+    return true
+end
+
+local function collectMaxedCans()
+    if countWateringCans(CW_CAN_MAX_MULT) >= CW_CAN_FREE_LIMIT then return 0 end
+    local ty = myTycoon()
+    if not ty then return 0 end
+    local n = 0
+    for _, d in ipairs(ty:GetDescendants()) do
+        if typeof(d) == "Instance" and d:IsA("Model") and d.Name == "WateringCan" then
+            local ready = d:GetAttribute("WateringCanReady")
+            local stage = tonumber(d:GetAttribute("WateringCanStageIndex")) or 0
+            local mult = tonumber(d:GetAttribute("WateringCanMultiplier")) or 0
+            if ready == true and stage >= CW_CAN_MAX_STAGE and mult >= CW_CAN_MAX_MULT then
+                local inner = d:FindFirstChild("Cylinder", true)
+                local root = inner or d
+                for _, p in ipairs(root:GetDescendants()) do
+                    if p:IsA("ProximityPrompt") and p.Name == "CollectWateringCanPrompt" and p.Enabled then
+                        if tpCollect(p) then
+                            n = n + 1
+                            getgenv().CW_LastCollect = "can 256x " .. os.date("%H:%M:%S")
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    return n
+end
+
+local function collectMaxedFert()
+    local ty = myTycoon()
+    if not ty then return 0 end
+    local n = 0
+    for _, d in ipairs(ty:GetDescendants()) do
+        if typeof(d) == "Instance" then
+            local stage = d:GetAttribute("CompostBinFertilizerStageIndex")
+            if stage ~= nil then
+                local ready = d:GetAttribute("CompostBinFertilizerReady")
+                local item = tostring(d:GetAttribute("CompostBinFertilizerItemId") or "")
+                if ready == true and tonumber(stage) == CW_FERT_MAX_STAGE and item == CW_FERT_MAX_ITEM then
+                    for _, p in ipairs(d:GetDescendants()) do
+                        if p:IsA("ProximityPrompt") and p.Name == "CollectCompostFertilizerPrompt" and p.Enabled then
+                            if tpCollect(p) then
+                                n = n + 1
+                                getgenv().CW_LastCollect = "diamond fert " .. os.date("%H:%M:%S")
+                            end
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return n
+end
+
+task.spawn(function()
+    while getgenv().CW_Running and getgenv().CW_Gen == myGen do
+        pcall(function()
+            if getgenv().CW_CollectCan then collectMaxedCans() end
+            if getgenv().CW_CollectFert then collectMaxedFert() end
+        end)
+        task.wait(5)
+    end
+end)
+
+--[[ Feature 3: Trees — plant Prio1-3, chop mature prio trees, collect ]]
+local CW_TREE_TYPES = {
+    {"Oak","Common"},{"Birch","Common"},
+    {"Pine","Uncommon"},{"Maple","Uncommon"},{"Palm","Uncommon"},
+    {"Willow","Rare"},{"Acacia","Rare"},
+    {"Sakura","Epic"},
+    {"Bubble","Legendary"},
+    {"Doom","Mythical"},{"NightBlossom","Mythical"},{"Redstar","Mythical"},
+    {"Glow","Sacred"},{"MagicalPalm","Sacred"},
+    {"Astral","Ethereal"},{"WitheredRose","Ethereal"},
+    {"Lunar","Celestial"},{"Solar","Celestial"},
+    {"Cloud","Secret"},{"Lightning","Secret"},{"Sunset","Secret"},
+    {"Starfall","Cosmic"},{"NightmareBloom","Cosmic"},
+    {"Voidstar","Transcendent"},{"Hyperwave","Transcendent"},
+    {"Alien","Transcendent"},
+    {"ScorchingMushroom","Super Secret"},{"Kelp","Super Secret"},
+}
+local CW_PlantUUID = nil
+local function resolveRoute(route)
+    local ok, mod = pcall(function()
+        return require(game:GetService("ReplicatedFirst"):WaitForChild("Client"))
+    end)
+    if not ok or type(mod) ~= "table" or type(mod.CachedRemotes) ~= "table" then return nil end
+    local salt = LP.Name .. tostring(game.PlaceVersion) .. "xdd"
+    local sl = #salt
+    for k, v in pairs(mod.CachedRemotes) do
+        local ks = tostring(k)
+        if #ks == #route then
+            local d = {}
+            for i = 1, #ks do
+                d[i] = string.char(bit32.bxor(ks:byte(i), salt:byte((i - 1) % sl + 1)))
+            end
+            if table.concat(d) == route then return tostring(v) end
+        end
+    end
+    return nil
+end
+
+local function findAxe()
+    local ch = LP.Character
+    local doom = ch and ch:FindFirstChild("Axe of Doom") or LP.Backpack:FindFirstChild("Axe of Doom")
+    if doom then return doom end
+    local function scan(root)
+        for _, t in ipairs(root:GetChildren()) do
+            if t:IsA("Tool") and string.find(t.Name, "Axe", 1, true) then return t end
+        end
+        return nil
+    end
+    return (ch and scan(ch)) or scan(LP.Backpack)
+end
+
+local function woodChips()
+    local n = 0
+    pcall(function()
+        local ls = LP:FindFirstChild("leaderstats")
+        local w = ls and ls:FindFirstChild("Wood Chips")
+        if w then n = tonumber(w.Value) or 0 end
+    end)
+    return n
+end
+
+local function countLogs()
+    local n = 0
+    pcall(function()
+        for _, t in ipairs(LP.Backpack:GetChildren()) do
+            if typeof(t) == "Instance" and string.find(t.Name, " Log", 1, true) then n = n + 1 end
+        end
+    end)
+    return n
+end
+
+-- Plant mit TP (Server verlangt Nähe). Gibt planted TreeType oder nil.
+local function plantPrio(planter)
+    local idx = planter:GetAttribute("PlanterIndex")
+    if idx == nil or tonumber(idx) == 0 then return nil end
+    local h = hrp()
+    if not h then return nil end
+    if not CW_PlantUUID then CW_PlantUUID = resolveRoute("PlantSeedFromInventory") end
+    if not CW_PlantUUID then return nil end
+    local rem = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
+    rem = rem and rem:FindFirstChild(CW_PlantUUID)
+    if not rem then CW_PlantUUID = nil return nil end
+    local ty = myTycoon()
+    if not ty then return nil end
+    local pp
+    pcall(function() pp = planter:GetPivot().Position end)
+    if typeof(pp) ~= "Vector3" then return nil end
+    local dest = CFrame.new(pp + Vector3.new(0, 4, 6))
+    -- Antwort-getrieben: bei "Move closer" neu TP + Retry, sonst Prio-Fallback.
+    for _ = 1, 4 do
+        if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+        if not h.Parent then return nil end
+        pcall(function() h.CFrame = dest end)
+        local needCloser = false
+        for _, prio in ipairs({getgenv().CW_Prio1, getgenv().CW_Prio2, getgenv().CW_Prio3}) do
+            if type(prio) == "string" and prio ~= "" then
+                local ok, r = pcall(function()
+                    return rem:InvokeServer({PlanterIndex = tonumber(idx), TreeType = prio, TycoonName = ty.Name})
+                end)
+                if ok and type(r) == "table" then
+                    if r.Success == true then
+                        getgenv().CW_LastTree = "planted " .. prio .. " " .. os.date("%H:%M:%S")
+                        return prio
+                    end
+                    local msg = tostring(r.Error or r.Message or "")
+                    if string.find(msg, "ccupied", 1, true) or string.find(msg, "nvalid", 1, true) then
+                        return nil
+                    end
+                    if string.find(msg, "loser", 1, true) then
+                        needCloser = true
+                        break
+                    end
+                end
+            end
+        end
+        if not needCloser then return nil end
+        task.wait()
+    end
+    return nil
+end
+
+local function dropContainer()
+    local c = nil
+    pcall(function()
+        c = workspace:FindFirstChild("ClientTreeDropEffects_" .. tostring(LP.UserId))
+    end)
+    return c
+end
+
+local function dropPos(d)
+    local pos = nil
+    pcall(function()
+        if d:IsA("BasePart") then
+            pos = d.Position
+        elseif d:IsA("Model") then
+            pos = d:GetPivot().Position
+        else
+            local p = d:FindFirstChild("Part", true) or d:FindFirstChildWhichIsA("BasePart", true)
+            if p then pos = p.Position end
+        end
+    end)
+    return pos
+end
+
+-- Chop: sauber neben dem Stamm (unanchored, Server ignoriert Anchored-Hits),
+-- Position jeden Swing neu setzen. Swing-Takt folgt TreeChopSerial-Signal.
+local function chopAndCollect(tree)
+    local h = hrp()
+    if not h then return false end
+    local axe = findAxe()
+    if not axe then return false end
+    local tp
+    pcall(function() tp = tree:GetPivot().Position end)
+    if typeof(tp) ~= "Vector3" then return false end
+    -- Unanchored lassen (Server ignoriert AxeHit bei Anchored-HRP).
+    -- Sauber NEBEN dem Stamm stehen, Position jeden Swing neu setzen.
+    local away = (h.Position - tp)
+    away = Vector3.new(away.X, 0, away.Z)
+    if away.Magnitude < 1 then away = Vector3.new(1, 0, 1) end
+    local stand = tp + away.Unit * 5 + Vector3.new(0, 4, 0)
+    local aim = tp + Vector3.new(0, 3, 0)
+    pcall(function()
+        h.Anchored = false
+        h.CFrame = CFrame.lookAt(stand, aim)
+    end)
+    task.wait()
+    local ch = LP.Character
+    if axe.Parent ~= ch then
+        pcall(function() axe.Parent = ch end)
+        task.wait()
+    end
+    -- Nativ: nächster Swing erst nach registriertem Hit (TreeChopSerial).
+    -- Tempo kalibriert sich pro Axt selbst (est). Keine festen Swing-Zeiten.
+    local felled = false
+    local est = 0.6
+    local misses = 0
+    while getgenv().CW_Running and getgenv().CW_Trees do
+        if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true break end
+        local serial0 = tree:GetAttribute("TreeChopSerial") or 0
+        local tA = os.clock()
+        pcall(function()
+            h.CFrame = CFrame.lookAt(stand, aim)
+            axe:Activate()
+        end)
+        local hit = false
+        while os.clock() - tA < 2.5 do
+            task.wait(0.05)
+            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+            if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true break end
+            if (tree:GetAttribute("TreeChopSerial") or 0) ~= serial0 then hit = true break end
+        end
+        if felled then break end
+        if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+        if hit then
+            est = math.max(0.25, os.clock() - tA)
+            misses = 0
+        else
+            misses = misses + 1
+            if misses == 5 then
+                pcall(function()
+                    h.CFrame = CFrame.lookAt(stand, aim)
+                    if axe.Parent ~= LP.Character then axe.Parent = LP.Character end
+                end)
+                task.wait()
+            elseif misses >= 10 then
+                break
+            end
+        end
+        local gap = est * 0.9 - (os.clock() - tA)
+        while gap > 0 do
+            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+            if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true break end
+            task.wait(0.05)
+            gap = est * 0.9 - (os.clock() - tA)
+        end
+        if felled then break end
+    end
+    if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true end
+    if felled then
+        -- Drops liegen in ClientTreeDropEffects_<uid> (*Drop-Models).
+        -- Jedes einzeln per Position einsammeln bis der Container leer ist.
+        local chips0, logs0 = woodChips(), countLogs()
+        local names = {}
+        local visited = {}
+        -- Nativ: auf Drops warten, pro Drop warten bis er weg ist (eingesammelt).
+        local tC0 = os.clock()
+        while os.clock() - tC0 < 10 do
+            local any = false
+            pcall(function()
+                local c = dropContainer()
+                any = c and #c:GetChildren() > 0
+            end)
+            if any then break end
+            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+            task.wait(0.2)
+        end
+        for _ = 1, 40 do
+            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+            local target, pos = nil, nil
+            pcall(function()
+                local c = dropContainer()
+                if c then
+                    for _, d in ipairs(c:GetChildren()) do
+                        if string.find(d.Name, "Drop", 1, true) then
+                            local p = dropPos(d)
+                            if p then
+                                local seen = false
+                                for _, v in ipairs(visited) do
+                                    if (v - p).Magnitude < 7 then seen = true break end
+                                end
+                                if not seen then target, pos = d, p break end
+                            end
+                        end
+                    end
+                end
+            end)
+            if not target then break end
+            if #names < 12 then names[#names + 1] = target.Name end
+            visited[#visited + 1] = pos
+            pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0)) end)
+            local tG0 = os.clock()
+            while os.clock() - tG0 < 3 do
+                local gone = true
+                pcall(function() gone = (not target.Parent) end)
+                if gone then break end
+                if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+                task.wait(0.1)
+            end
+        end
+        local got = (woodChips() - chips0) + (countLogs() - logs0)
+        getgenv().CW_LastTree = "chopped+" .. tostring(got) .. " [" .. table.concat(names, ",") .. "] " .. os.date("%H:%M:%S")
+    end
+    return felled
+end
+
+task.spawn(function()
+    local planterCache = {}
+    while getgenv().CW_Running and getgenv().CW_Gen == myGen do
+        local didWork = false
+        if getgenv().CW_Trees then
+            local ty = nil
+            pcall(function() ty = myTycoon() end)
+            if ty then
+                local prios = {}
+                for _, p in ipairs({getgenv().CW_Prio1, getgenv().CW_Prio2, getgenv().CW_Prio3}) do
+                    if type(p) == "string" and p ~= "" then prios[p] = true end
+                end
+                local h0 = hrp()
+                local save = (h0 and h0.CFrame) or nil
+                -- Planter-Cache (kein Full-Scan pro Zyklus)
+                local fresh = true
+                if #planterCache > 0 then
+                    for _, pm in ipairs(planterCache) do
+                        if not pm.Parent or pm:GetAttribute("TreePlanter") ~= true then fresh = false break end
+                    end
+                else
+                    fresh = false
+                end
+                if not fresh then
+                    planterCache = {}
+                    pcall(function()
+                        for _, d in ipairs(ty:GetDescendants()) do
+                            if typeof(d) == "Instance" and d:GetAttribute("TreePlanter") == true then
+                                planterCache[#planterCache + 1] = d
+                            end
+                        end
+                    end)
+                end
+                pcall(function()
+                    for _, d in ipairs(planterCache) do
+                        if not getgenv().CW_Trees then break end
+                        if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty" then
+                            if plantPrio(d) then didWork = true end
+                        end
+                    end
+                end)
+                pcall(function()
+                    local CS = game:GetService("CollectionService")
+                    for _, t in ipairs(CS:GetTagged("ChoppableTree")) do
+                        if not getgenv().CW_Trees then break end
+                        if t:IsDescendantOf(ty) and t:GetAttribute("TreeMature") == true
+                            and t:GetAttribute("TreeFelling") ~= true
+                            and prios[tostring(t:GetAttribute("TreeType"))] then
+                            if chopAndCollect(t) then didWork = true end
+                            break
+                        end
+                    end
+                end)
+                if save then pcall(function() local h = hrp() if h then h.CFrame = save end end) end
+            end
+        end
+        task.wait(didWork and 2 or 8)
+    end
+end)
 
 local function doReroll()
     local ty = myTycoon()
@@ -688,7 +1150,7 @@ local function pill(text, x, color)
     l.Parent = p
     return p
 end
-local pillV = pill("v9.0", 212, ACCENT)
+local pillV = pill("v9.1", 212, ACCENT)
 local pillK = pill("no key", 284, MUT)
 
 local side = Instance.new("Frame")
@@ -816,6 +1278,7 @@ local function makePage(name)
 end
 local homePage = makePage("Home")
 local farmPage = makePage("Farm")
+local treePage = makePage("Trees")
 local perfPage = makePage("Performance")
 
 function paintNav()
@@ -977,6 +1440,137 @@ local function toggle(row, get, set)
     return { repaint = paint }
 end
 
+local RARITY_COLORS = {
+    ["Common"] = Color3.fromRGB(169, 169, 169),
+    ["Uncommon"] = Color3.fromRGB(63, 214, 105),
+    ["Rare"] = Color3.fromRGB(63, 169, 255),
+    ["Epic"] = Color3.fromRGB(180, 92, 255),
+    ["Legendary"] = Color3.fromRGB(255, 158, 44),
+    ["Mythical"] = Color3.fromRGB(255, 77, 109),
+    ["Sacred"] = Color3.fromRGB(255, 225, 77),
+    ["Ethereal"] = Color3.fromRGB(92, 242, 232),
+    ["Celestial"] = Color3.fromRGB(207, 232, 255),
+    ["Secret"] = Color3.fromRGB(46, 230, 168),
+    ["Cosmic"] = Color3.fromRGB(255, 61, 242),
+    ["Transcendent"] = Color3.fromRGB(255, 46, 77),
+    ["Super Secret"] = Color3.fromRGB(255, 255, 255),
+}
+
+local DD2_LISTS = {}
+local function closeDD2()
+    for _, f in ipairs(DD2_LISTS) do
+        pcall(function() f.Visible = false end)
+    end
+end
+
+local function dropdown2(page, pageName, title, desc, cardOrder, listOrder, options, get, set)
+    local row = card(page, pageName, title, desc, cardOrder, 76)
+    local b = Instance.new("TextButton")
+    b.AnchorPoint = Vector2.new(1, 0.5)
+    b.Position = UDim2.new(1, -20, 0.5, 0)
+    b.Size = UDim2.new(0, 200, 0, 36)
+    b.BackgroundColor3 = CTRL
+    b.BorderSizePixel = 0
+    b.AutoButtonColor = true
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.TextTruncate = Enum.TextTruncate.AtEnd
+    b.Parent = row
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
+    local function optOf(v)
+        for _, o in ipairs(options) do
+            if o.value == v then return o end
+        end
+        return nil
+    end
+    local function paint()
+        local o = optOf(get())
+        b.Text = (o and o.value or tostring(get())) .. "  ▾"
+        b.TextColor3 = (o and RARITY_COLORS[o.rarity]) or TXT
+    end
+    local list = Instance.new("Frame")
+    list.Size = UDim2.new(1, 0, 0, 320)
+    list.BackgroundColor3 = CARD
+    list.BorderSizePixel = 0
+    list.ClipsDescendants = true
+    list.LayoutOrder = listOrder
+    list.Visible = false
+    list.Parent = page
+    Instance.new("UICorner", list).CornerRadius = UDim.new(0, 16)
+    local lst = Instance.new("UIStroke", list)
+    lst.Color = STROKE
+    lst.Thickness = 1
+    lst.Transparency = 0.35
+    lst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    DD2_LISTS[#DD2_LISTS + 1] = list
+    local sc = Instance.new("ScrollingFrame")
+    sc.Size = UDim2.new(1, -16, 1, -16)
+    sc.Position = UDim2.new(0, 8, 0, 8)
+    sc.BackgroundTransparency = 1
+    sc.BorderSizePixel = 0
+    sc.ScrollBarThickness = 3
+    sc.ScrollBarImageColor3 = Color3.fromRGB(70, 70, 90)
+    sc.CanvasSize = UDim2.new(0, 0, 0, 0)
+    sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sc.Parent = list
+    local ll = Instance.new("UIListLayout", sc)
+    ll.Padding = UDim.new(0, 4)
+    ll.SortOrder = Enum.SortOrder.LayoutOrder
+    local cur = get()
+    for i, opt in ipairs(options) do
+        local col = RARITY_COLORS[opt.rarity] or TXT
+        local ob = Instance.new("TextButton")
+        ob.Size = UDim2.new(1, 0, 0, 38)
+        ob.BackgroundColor3 = (opt.value == cur) and CTRL or CARD
+        ob.Text = ""
+        ob.AutoButtonColor = true
+        ob.LayoutOrder = i
+        ob.BorderSizePixel = 0
+        ob.Parent = sc
+        Instance.new("UICorner", ob).CornerRadius = UDim.new(0, 8)
+        local dot4 = Instance.new("Frame")
+        dot4.Size = UDim2.new(0, 10, 0, 10)
+        dot4.Position = UDim2.new(0, 12, 0.5, -5)
+        dot4.BackgroundColor3 = col
+        dot4.BorderSizePixel = 0
+        dot4.Parent = ob
+        Instance.new("UICorner", dot4).CornerRadius = UDim.new(1, 0)
+        local nm = Instance.new("TextLabel")
+        nm.Position = UDim2.new(0, 32, 0, 2)
+        nm.Size = UDim2.new(1, -42, 0, 22)
+        nm.BackgroundTransparency = 1
+        nm.Text = opt.value
+        nm.Font = Enum.Font.GothamBold
+        nm.TextSize = 15
+        nm.TextXAlignment = Enum.TextXAlignment.Left
+        nm.TextTruncate = Enum.TextTruncate.AtEnd
+        nm.TextColor3 = col
+        nm.Parent = ob
+        local rl = Instance.new("TextLabel")
+        rl.Position = UDim2.new(0, 32, 0, 22)
+        rl.Size = UDim2.new(1, -42, 0, 14)
+        rl.BackgroundTransparency = 1
+        rl.Text = opt.rarity
+        rl.Font = Enum.Font.Gotham
+        rl.TextSize = 11
+        rl.TextXAlignment = Enum.TextXAlignment.Left
+        rl.TextColor3 = MUT
+        rl.Parent = ob
+        ob.MouseButton1Click:Connect(function()
+            set(opt.value)
+            paint()
+            list.Visible = false
+        end)
+    end
+    b.MouseButton1Click:Connect(function()
+        local was = list.Visible
+        closeDD2()
+        list.Visible = not was
+    end)
+    paint()
+    return { repaint = paint }
+end
+
 section(homePage, "STATS", 1)
 do
     local statRow = Instance.new("Frame")
@@ -1069,6 +1663,38 @@ toggle(card(farmPage, "Farm", "Auto Farm Seeds", "Reroll, wait, collect until em
 toggle(card(farmPage, "Farm", "Auto Frenzy", "Fire collect remotes each cycle. Never touches Alien.", 3),
     function() return getgenv().CW_Frenzy end,
     function(v) getgenv().CW_Frenzy = v end)
+toggle(card(farmPage, "Farm", "AutoCollect Can 256x", "TP to can, collect, TP back. Skips when 5+ 256x held.", 4),
+    function() return getgenv().CW_CollectCan end,
+    function(v) getgenv().CW_CollectCan = v end)
+toggle(card(farmPage, "Farm", "AutoCollect Diamond Fert", "TP to bin, collect, TP back. No inventory limit.", 5),
+    function() return getgenv().CW_CollectFert end,
+    function(v) getgenv().CW_CollectFert = v end)
+
+section(treePage, "TREES", 1)
+toggle(card(treePage, "Trees", "Auto Trees", "Plant empty plots by priority, chop mature prio trees, collect.", 2),
+    function() return getgenv().CW_Trees end,
+    function(v) getgenv().CW_Trees = v end)
+do
+    local opts = {}
+    for _, e in ipairs(CW_TREE_TYPES) do
+        opts[#opts + 1] = { value = e[1], rarity = e[2], label = e[1] .. " · " .. e[2] }
+    end
+    dropdown2(treePage, "Trees", "Priority 1", "Planted first in every free plot.", 3, 4, opts,
+        function() return getgenv().CW_Prio1 end,
+        function(v) getgenv().CW_Prio1 = v end)
+    dropdown2(treePage, "Trees", "Priority 2", "Fallback when Prio 1 has no seeds.", 5, 6, opts,
+        function() return getgenv().CW_Prio2 end,
+        function(v) getgenv().CW_Prio2 = v end)
+    dropdown2(treePage, "Trees", "Priority 3", "Fallback when Prio 2 has no seeds.", 7, 8, opts,
+        function() return getgenv().CW_Prio3 end,
+        function(v) getgenv().CW_Prio3 = v end)
+end
+
+local _oldApplySearch = applySearch
+function applySearch()
+    _oldApplySearch()
+    closeDD2()
+end
 
 section(perfPage, "PERFORMANCE", 1)
 toggle(card(perfPage, "Performance", "Low Quality", "Strip effects, lights, shadows. Restores exactly.", 2),
@@ -1144,7 +1770,8 @@ end
 
 navItem("Home", 1)
 navItem("Farm", 2)
-navItem("Performance", 3)
+navItem("Trees", 3)
+navItem("Performance", 4)
 addSheen(search)
 paintNav()
 showPage()
@@ -1162,6 +1789,9 @@ btnX.MouseButton1Click:Connect(function()
     getgenv().CW_AntiShake = false
     getgenv().CW_Farm = false
     getgenv().CW_Frenzy = false
+    getgenv().CW_CollectCan = false
+    getgenv().CW_CollectFert = false
+    getgenv().CW_Trees = false
     getgenv().CW_Running = false
     pcall(shakeOff)
     if getgenv().CW_LowQ then getgenv().CW_LowQ = false pcall(lowQOff) end
