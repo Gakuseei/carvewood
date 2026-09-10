@@ -211,7 +211,7 @@ local function shakeOn()
     killGameCam()
     smoothPos, smoothLook = nil, nil
     pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
-    RunService:BindToRenderStep("CW_AntiShake", Enum.RenderPriority.Last.Value + 1, function(dt)
+    local function smoothFn(dt)
         if not getgenv().CW_AntiShake then return end
         getgenv().CW_ShakeBeat = os.clock()
         local cam = workspace.CurrentCamera
@@ -225,17 +225,35 @@ local function shakeOn()
         end
         local cf = cam.CFrame
         local p = cf.Position
-        local stiff = (tonumber(getgenv().CW_ShakeSmooth) or 0.5) * 36
-        local a = 1 - math.exp(-stiff * math.max(dt or 0.016, 1 / 240))
+        local lv = cf.LookVector
         if not smoothPos or (p - smoothPos).Magnitude > 25 then
-            smoothPos, smoothLook = p, cf.LookVector
+            smoothPos, smoothLook = p, lv
             return
         end
-        smoothPos = smoothPos:Lerp(p, a)
-        local lv = smoothLook:Lerp(cf.LookVector, a)
-        if lv.Magnitude > 1e-4 then smoothLook = lv.Unit end
+        dt = math.max(dt or 0.016, 1 / 240)
+        if (p - smoothPos).Magnitude > 1.5 then
+            local a = 1 - math.exp(-30 * dt)
+            smoothPos = smoothPos:Lerp(p, a)
+            local nl = smoothLook:Lerp(lv, a)
+            if nl.Magnitude > 1e-4 then smoothLook = nl.Unit end
+        else
+            local dot = math.clamp(smoothLook:Dot(lv), -1, 1)
+            if math.acos(dot) > math.rad(1.5) then
+                local a = 1 - math.exp(-25 * dt)
+                local nl = smoothLook:Lerp(lv, a)
+                if nl.Magnitude > 1e-4 then smoothLook = nl.Unit end
+            end
+        end
         cam.CFrame = CFrame.lookAt(smoothPos, smoothPos + smoothLook)
+    end
+    local bound = pcall(function()
+        RunService:BindToRenderStep("CW_AntiShake", 3000, smoothFn)
     end)
+    if not bound then
+        pcall(function()
+            RunService:BindToRenderStep("CW_AntiShake", Enum.RenderPriority.Last.Value + 1, smoothFn)
+        end)
+    end
 end
 local function shakeOff()
     pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
