@@ -46,11 +46,37 @@ local function firePrompt(p)
     return false
 end
 
+local CW_ALIEN_ROUTE = "ActivateAlienInvasion"
+local function alienUUID()
+    local ok, mod = pcall(function()
+        return require(game:GetService("ReplicatedFirst"):WaitForChild("Client"))
+    end)
+    if not ok or type(mod) ~= "table" then return nil end
+    local cr = mod.CachedRemotes
+    if type(cr) ~= "table" then return nil end
+    local salt = LP.Name .. tostring(game.PlaceVersion) .. "xdd"
+    local sl = #salt
+    for k, v in pairs(cr) do
+        local ks = tostring(k)
+        if #ks == #CW_ALIEN_ROUTE then
+            local d = {}
+            for i = 1, #ks do
+                d[i] = string.char(bit32.bxor(ks:byte(i), salt:byte((i - 1) % sl + 1)))
+            end
+            if table.concat(d) == CW_ALIEN_ROUTE then return tostring(v) end
+        end
+    end
+    return nil
+end
+
 local function fireCollectRemotes()
     local f = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
     if not f then return end
+    local bad = nil
+    pcall(function() bad = alienUUID() end)
+    if bad == nil then return end
     for _, d in pairs(f:GetChildren()) do
-        if d:IsA("RemoteFunction") then
+        if d:IsA("RemoteFunction") and d.Name ~= bad then
             task.spawn(function()
                 pcall(function() d:InvokeServer({}) end)
             end)
@@ -1002,7 +1028,7 @@ toggle(card(farmPage, "Farm", "Auto Farm Seeds", "Reroll, wait, collect until em
             pcall(shakeOff)
         end
     end)
-toggle(card(farmPage, "Farm", "Auto Frenzy", "Fire collect remotes each cycle.", 3),
+toggle(card(farmPage, "Farm", "Auto Frenzy", "Fire collect remotes each cycle. Never touches Alien.", 3),
     function() return getgenv().CW_Frenzy end,
     function(v) getgenv().CW_Frenzy = v end)
 
