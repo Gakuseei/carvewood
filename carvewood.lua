@@ -207,8 +207,19 @@ local function killGameCam()
         getgenv().CenterCameraConnection = nil
     end
 end
+local function gameShakeScale(v)
+    pcall(function()
+        local rs = game:GetService("ReplicatedStorage")
+        local sh = rs:FindFirstChild("Shared", true)
+        local ss = sh and sh:FindFirstChild("SettingsShared")
+        if ss then
+            require(ss).SetLocalValue("CameraShakeEnabled", v)
+        end
+    end)
+end
 local function shakeOn()
     killGameCam()
+    gameShakeScale(false)
     smoothPos, smoothLook = nil, nil
     pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
     local function smoothFn(dt)
@@ -256,6 +267,7 @@ local function shakeOn()
     end
 end
 local function shakeOff()
+    gameShakeScale(nil)
     pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
     smoothPos, smoothLook = nil, nil
     local cam = workspace.CurrentCamera
