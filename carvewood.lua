@@ -92,6 +92,7 @@ end
 
 local seedList = {}
 local seedSeen = {}
+local seedPrompt, trackPrompt
 local active = 0
 local function runCollect(p)
     active = active + 1
@@ -114,6 +115,15 @@ local function grabAll()
             runCollect(p)
         end
     end
+    if n == 0 then
+        for _, d in pairs(ty:GetDescendants()) do
+            if typeof(d) == "Instance" and d:IsA("ProximityPrompt") and d.Enabled and seedPrompt(d) then
+                trackPrompt(d)
+                n = n + 1
+                runCollect(d)
+            end
+        end
+    end
     if n > 0 then
         local t0 = os.clock()
         while active > 0 and os.clock() - t0 < 0.4 do task.wait(0.02) end
@@ -121,12 +131,12 @@ local function grabAll()
     return n
 end
 
-local function seedPrompt(p)
+seedPrompt = function(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     local nm = p.Name
     return string.find(nm, "Grab", 1, true) ~= nil or string.find(nm, "Collect", 1, true) ~= nil
 end
-local function trackPrompt(p)
+trackPrompt = function(p)
     if seedPrompt(p) and not seedSeen[p] then
         seedSeen[p] = true
         seedList[#seedList + 1] = p
@@ -140,6 +150,23 @@ local function trackScan()
         end
     end
 end
+
+local function hookTycoon(ty)
+    for _, d in pairs(ty:GetDescendants()) do
+        trackPrompt(d)
+    end
+    ty.DescendantAdded:Connect(function(d)
+        pcall(function()
+            trackPrompt(d)
+        end)
+    end)
+end
+
+local function hookAll()
+    local ty = myTycoon()
+    if ty then pcall(hookTycoon, ty) end
+end
+pcall(hookAll)
 
 local function doReroll()
     local ty = myTycoon()
