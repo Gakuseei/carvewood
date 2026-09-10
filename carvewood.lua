@@ -1,4 +1,4 @@
---[[ CarveWood v8.0 | Delta mobile | no login, no key ]]
+--[[ CarveWood v9.0 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -498,27 +498,44 @@ task.spawn(function()
         if getgenv().CW_AutoReroll and not getgenv().CW_Farm then pcall(doReroll) end
         pcall(function()
             local g = ((gethui and gethui()) or game:GetService("CoreGui")):FindFirstChild("CarveWoodUI")
-            local f = g and g:FindFirstChild("CWFoot", true)
-            if f then
-                local el = math.floor((getgenv().CW_FarmTime or 0)
-                    + (getgenv().CW_FarmSince and (os.clock() - getgenv().CW_FarmSince) or 0))
-                local hh = math.floor(el / 3600)
-                local mm = math.floor((el % 3600) / 60)
-                local ss = el % 60
-                local tstr = hh > 0 and string.format("%d:%02d:%02d", hh, mm, ss)
-                    or string.format("%02d:%02d", mm, ss)
-                local brk = getgenv().CW_LastBreak or ""
-                f.Text = "Rerolls: " .. tostring(getgenv().CW_Rolls or 0) .. "  |  " .. tstr .. (brk ~= "" and "  |  " .. brk or "")
-            end
+            if not g then return end
+            local el = math.floor((getgenv().CW_FarmTime or 0)
+                + (getgenv().CW_FarmSince and (os.clock() - getgenv().CW_FarmSince) or 0))
+            local hh = math.floor(el / 3600)
+            local mm = math.floor((el % 3600) / 60)
+            local ss = el % 60
+            local tstr = hh > 0 and string.format("%d:%02d:%02d", hh, mm, ss)
+                or string.format("%02d:%02d", mm, ss)
+            local brk = getgenv().CW_LastBreak or ""
+            local ph = getgenv().CW_Phase or (getgenv().CW_Farm and "running" or "idle")
+            local r = g:FindFirstChild("CWValRolls", true)
+            if r then r.Text = tostring(getgenv().CW_Rolls or 0) end
+            local t = g:FindFirstChild("CWValTime", true)
+            if t then t.Text = tstr end
+            local p = g:FindFirstChild("CWValPhase", true)
+            if p then p.Text = tostring(ph) end
+            local sb = g:FindFirstChild("CWSubPhase", true)
+            if sb then sb.Text = brk end
         end)
         task.wait(getgenv().CW_Delay)
     end
 end)
 
---[[ clean dark ui ]]
+--[[ CarveWood v9.0 UI | reference style | green accent | 820x520 + mobile scale ]]
 local parent = (gethui and gethui()) or game:GetService("CoreGui")
 local old = parent:FindFirstChild("CarveWoodUI")
 if old then old:Destroy() end
+
+local ACCENT = Color3.fromRGB(111, 207, 127)
+local ACCENT_D = Color3.fromRGB(63, 143, 79)
+local BG = Color3.fromRGB(15, 15, 21)
+local SIDE = Color3.fromRGB(20, 20, 28)
+local CARD = Color3.fromRGB(33, 33, 47)
+local CTRL = Color3.fromRGB(48, 48, 66)
+local STROKE = Color3.fromRGB(62, 62, 84)
+local TXT = Color3.fromRGB(238, 238, 248)
+local MUT = Color3.fromRGB(180, 180, 200)
+local GRN = Color3.fromRGB(140, 220, 150)
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "CarveWoodUI"
@@ -526,107 +543,446 @@ gui.ResetOnSpawn = false
 gui.Parent = parent
 
 local main = Instance.new("Frame")
-main.Size = UDim2.new(0, 440, 0, 260)
-main.Position = UDim2.new(0.5, -220, 0.5, -150)
-main.BackgroundColor3 = Color3.fromRGB(13, 13, 18)
+main.Name = "Main"
+main.Size = UDim2.new(0, 820, 0, 520)
+main.Position = UDim2.new(0.5, -410, 0.5, -260)
+main.BackgroundColor3 = BG
 main.BorderSizePixel = 0
 main.Active = true
 main.Draggable = true
+main.ClipsDescendants = true
 main.Parent = gui
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 16)
 
-local side = Instance.new("Frame")
-side.Size = UDim2.new(0, 130, 1, 0)
-side.BackgroundColor3 = Color3.fromRGB(18, 18, 26)
-side.BorderSizePixel = 0
-side.Parent = main
-Instance.new("UICorner", side).CornerRadius = UDim.new(0, 10)
-
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 44)
-title.BackgroundTransparency = 1
-title.Text = "CARVEWOOD"
-title.Font = Enum.Font.GothamBold
-title.TextSize = 15
-title.TextColor3 = Color3.fromRGB(235, 235, 245)
-title.Parent = side
-
-local ver = Instance.new("TextLabel")
-ver.Size = UDim2.new(1, 0, 0, 16)
-ver.Position = UDim2.new(0, 0, 0, 40)
-ver.BackgroundTransparency = 1
-ver.Text = "v8.0  |  no key"
-ver.Font = Enum.Font.Gotham
-ver.TextSize = 11
-ver.TextColor3 = Color3.fromRGB(130, 130, 150)
-ver.Parent = side
-
-local body = Instance.new("Frame")
-body.Position = UDim2.new(0, 142, 0, 12)
-body.Size = UDim2.new(1, -154, 1, -48)
-body.BackgroundTransparency = 1
-body.Parent = main
-
-local function section(text, y)
-    local s = Instance.new("TextLabel")
-    s.Position = UDim2.new(0, 0, 0, y)
-    s.Size = UDim2.new(1, 0, 0, 20)
-    s.BackgroundTransparency = 1
-    s.Text = "  |  " .. text
-    s.Font = Enum.Font.GothamBold
-    s.TextSize = 12
-    s.TextXAlignment = Enum.TextXAlignment.Left
-    s.TextColor3 = Color3.fromRGB(150, 180, 255)
-    s.Parent = body
+do
+    local sc = Instance.new("UIScale")
+    sc.Parent = main
+    pcall(function()
+        local cam = workspace.CurrentCamera
+        local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+        local s = math.min(vp.X / 900, vp.Y / 620)
+        if s > 1 then s = 1 end
+        if s < 0.65 then s = 0.65 end
+        sc.Scale = s
+    end)
 end
 
-local function toggle(text, y, get, set)
-    local row = Instance.new("Frame")
-    row.Position = UDim2.new(0, 0, 0, y)
-    row.Size = UDim2.new(1, 0, 0, 32)
-    row.BackgroundTransparency = 1
-    row.Parent = body
+local collapsed = false
+local sheenGrads = {}
+local allCards = {}
+local currentPage = "Home"
+local addSheen
+
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 60)
+header.BackgroundColor3 = BG
+header.BorderSizePixel = 0
+header.Parent = main
+
+local hline = Instance.new("Frame")
+hline.Size = UDim2.new(1, 0, 0, 1)
+hline.Position = UDim2.new(0, 0, 1, -1)
+hline.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+hline.BorderSizePixel = 0
+hline.Parent = header
+
+local dot = Instance.new("Frame")
+dot.Size = UDim2.new(0, 12, 0, 12)
+dot.Position = UDim2.new(0, 16, 0.5, -6)
+dot.BackgroundColor3 = ACCENT
+dot.BorderSizePixel = 0
+dot.Parent = header
+Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+
+local title = Instance.new("TextLabel")
+title.Position = UDim2.new(0, 36, 0, 0)
+title.Size = UDim2.new(0, 168, 1, 0)
+title.BackgroundTransparency = 1
+title.Text = "CarveWood"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextColor3 = TXT
+title.Parent = header
+
+local function pill(text, x, color)
+    local p = Instance.new("Frame")
+    p.Position = UDim2.new(0, x, 0.5, -12)
+    p.Size = UDim2.new(0, 64, 0, 24)
+    p.BackgroundColor3 = Color3.fromRGB(33, 33, 47)
+    p.BorderSizePixel = 0
+    p.Parent = header
+    Instance.new("UICorner", p).CornerRadius = UDim.new(0, 8)
     local l = Instance.new("TextLabel")
-    l.Size = UDim2.new(1, -56, 1, 0)
+    l.Size = UDim2.new(1, 0, 1, 0)
     l.BackgroundTransparency = 1
     l.Text = text
-    l.Font = Enum.Font.Gotham
-    l.TextSize = 13
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.TextColor3 = Color3.fromRGB(225, 225, 235)
-    l.Parent = row
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 12
+    l.TextColor3 = color
+    l.Parent = p
+    return p
+end
+local pillV = pill("v9.0", 212, ACCENT)
+local pillK = pill("no key", 284, MUT)
+
+local side = Instance.new("Frame")
+side.Name = "Side"
+side.Position = UDim2.new(0, 0, 0, 60)
+side.Size = UDim2.new(0, 190, 1, -60)
+side.BackgroundColor3 = SIDE
+side.BorderSizePixel = 0
+side.Parent = main
+
+local sdiv = Instance.new("Frame")
+sdiv.Size = UDim2.new(0, 1, 1, 0)
+sdiv.Position = UDim2.new(1, -1, 0, 0)
+sdiv.BackgroundColor3 = Color3.fromRGB(32, 32, 44)
+sdiv.BorderSizePixel = 0
+sdiv.Parent = side
+
+local search = Instance.new("TextBox")
+search.Name = "Search"
+search.Position = UDim2.new(0, 12, 0, 12)
+search.Size = UDim2.new(1, -24, 0, 40)
+search.BackgroundColor3 = CARD
+search.Text = ""
+search.PlaceholderText = "Search..."
+search.PlaceholderColor3 = MUT
+search.Font = Enum.Font.Gotham
+search.TextSize = 14
+search.TextXAlignment = Enum.TextXAlignment.Left
+search.TextColor3 = TXT
+search.BorderSizePixel = 0
+search.ClearTextOnFocus = false
+search.Parent = side
+Instance.new("UICorner", search).CornerRadius = UDim.new(0, 10)
+do
+    local sst = Instance.new("UIStroke", search)
+    sst.Color = STROKE
+    sst.Thickness = 1
+    sst.Transparency = 0.55
+    sst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
+local spad = Instance.new("UIPadding", search)
+spad.PaddingLeft = UDim.new(0, 14)
+spad.PaddingRight = UDim.new(0, 14)
+
+local navHolder = Instance.new("Frame")
+navHolder.Position = UDim2.new(0, 12, 0, 60)
+navHolder.Size = UDim2.new(1, -24, 1, -72)
+navHolder.BackgroundTransparency = 1
+navHolder.Parent = side
+local navList = Instance.new("UIListLayout", navHolder)
+navList.Padding = UDim.new(0, 6)
+navList.SortOrder = Enum.SortOrder.LayoutOrder
+
+local navBtns = {}
+local function navItem(name, order)
     local b = Instance.new("TextButton")
-    b.Position = UDim2.new(1, -48, 0.5, -11)
-    b.Size = UDim2.new(0, 48, 0, 22)
+    b.Name = "Nav_" .. name
+    b.Size = UDim2.new(1, 0, 0, 48)
+    b.BackgroundColor3 = SIDE
     b.Text = ""
-    b.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+    b.BorderSizePixel = 0
+    b.LayoutOrder = order
+    b.AutoButtonColor = false
+    b.Parent = navHolder
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
+    local d = Instance.new("Frame")
+    d.Name = "Dot"
+    d.Size = UDim2.new(0, 10, 0, 10)
+    d.Position = UDim2.new(0, 16, 0.5, -5)
+    d.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
+    d.BorderSizePixel = 0
+    d.Parent = b
+    Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
+    local l = Instance.new("TextLabel")
+    l.Position = UDim2.new(0, 38, 0, 0)
+    l.Size = UDim2.new(1, -48, 1, 0)
+    l.BackgroundTransparency = 1
+    l.Text = name
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 15
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextColor3 = MUT
+    l.Parent = b
+    navBtns[name] = b
+    addSheen(b)
+    b.MouseButton1Click:Connect(function()
+        currentPage = name
+        paintNav()
+        showPage()
+        applySearch()
+    end)
+    return b
+end
+
+local content = Instance.new("Frame")
+content.Name = "Content"
+content.Position = UDim2.new(0, 190, 0, 60)
+content.Size = UDim2.new(1, -190, 1, -60)
+content.BackgroundTransparency = 1
+content.Parent = main
+
+local pages = {}
+local function makePage(name)
+    local sc = Instance.new("ScrollingFrame")
+    sc.Name = "Page_" .. name
+    sc.Size = UDim2.new(1, 0, 1, 0)
+    sc.BackgroundTransparency = 1
+    sc.BorderSizePixel = 0
+    sc.ScrollBarThickness = 3
+    sc.ScrollBarImageColor3 = Color3.fromRGB(70, 70, 90)
+    sc.CanvasSize = UDim2.new(0, 0, 0, 0)
+    sc.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    sc.Visible = false
+    sc.Parent = content
+    local pad = Instance.new("UIPadding", sc)
+    pad.PaddingLeft = UDim.new(0, 20)
+    pad.PaddingRight = UDim.new(0, 20)
+    pad.PaddingTop = UDim.new(0, 16)
+    pad.PaddingBottom = UDim.new(0, 16)
+    local list = Instance.new("UIListLayout", sc)
+    list.Padding = UDim.new(0, 14)
+    list.SortOrder = Enum.SortOrder.LayoutOrder
+    pages[name] = sc
+    return sc
+end
+local homePage = makePage("Home")
+local farmPage = makePage("Farm")
+local perfPage = makePage("Performance")
+
+function paintNav()
+    for name, b in pairs(navBtns) do
+        local on = (name == currentPage)
+        b.BackgroundColor3 = on and CARD or SIDE
+        local d = b:FindFirstChild("Dot")
+        if d then d.BackgroundColor3 = on and ACCENT or Color3.fromRGB(100, 100, 122) end
+        local l = b:FindFirstChildOfClass("TextLabel")
+        if l then l.TextColor3 = on and TXT or MUT end
+    end
+end
+function showPage()
+    for name, pg in pairs(pages) do
+        pg.Visible = (name == currentPage)
+    end
+end
+function applySearch()
+    local q = string.lower(search.Text or "")
+    for _, c in ipairs(allCards) do
+        if c.page == currentPage then
+            c.frame.Visible = (q == "" or string.find(c.text, q, 1, true) ~= nil)
+        else
+            c.frame.Visible = (q == "")
+        end
+    end
+end
+search:GetPropertyChangedSignal("Text"):Connect(applySearch)
+
+addSheen = function(card, phase)
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.34, 1),
+        NumberSequenceKeypoint.new(0.5, 0.5),
+        NumberSequenceKeypoint.new(0.66, 1),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    g.Rotation = 20
+    g.Offset = Vector2.new(2, 0)
+    g.Parent = card
+    sheenGrads[#sheenGrads + 1] = g
+end
+
+local function section(page, text, order)
+    local s = Instance.new("Frame")
+    s.Size = UDim2.new(1, 0, 0, 24)
+    s.BackgroundTransparency = 1
+    s.LayoutOrder = order
+    s.Parent = page
+    local bar = Instance.new("Frame")
+    bar.Position = UDim2.new(0, 0, 0, 4)
+    bar.Size = UDim2.new(0, 4, 0, 16)
+    bar.BackgroundColor3 = ACCENT
+    bar.BorderSizePixel = 0
+    bar.Parent = s
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
+    local l = Instance.new("TextLabel")
+    l.Position = UDim2.new(0, 14, 0, 0)
+    l.Size = UDim2.new(0, 220, 1, 0)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 14
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextColor3 = TXT
+    l.Parent = s
+    local line = Instance.new("Frame")
+    line.Position = UDim2.new(0, 200, 0.5, 0)
+    line.Size = UDim2.new(1, -200, 0, 2)
+    line.BackgroundColor3 = Color3.fromRGB(70, 70, 95)
+    line.BorderSizePixel = 0
+    line.Parent = s
+    local lg = Instance.new("UIGradient", line)
+    lg.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+end
+
+local function card(page, pageName, title, desc, order, h)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, h or 72)
+    row.BackgroundColor3 = CARD
+    row.BorderSizePixel = 0
+    row.ClipsDescendants = true
+    row.LayoutOrder = order
+    row.Parent = page
+    Instance.new("UICorner", row).CornerRadius = UDim.new(0, 16)
+    local st = Instance.new("UIStroke", row)
+    st.Color = STROKE
+    st.Thickness = 1
+    st.Transparency = 0.45
+    st.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    addSheen(row)
+    local t = Instance.new("TextLabel")
+    t.Position = UDim2.new(0, 20, 0, 8)
+    t.Size = UDim2.new(1, -250, 0, 24)
+    t.BackgroundTransparency = 1
+    t.Text = title
+    t.Font = Enum.Font.GothamBold
+    t.TextSize = 18
+    t.TextXAlignment = Enum.TextXAlignment.Left
+    t.TextColor3 = TXT
+    t.Parent = row
+    local d = Instance.new("TextLabel")
+    d.Position = UDim2.new(0, 20, 0, 34)
+    d.Size = UDim2.new(1, -250, 0, 30)
+    d.BackgroundTransparency = 1
+    d.Text = desc
+    d.Font = Enum.Font.Gotham
+    d.TextSize = 15
+    d.TextXAlignment = Enum.TextXAlignment.Left
+    d.TextYAlignment = Enum.TextYAlignment.Top
+    d.TextWrapped = true
+    d.TextColor3 = MUT
+    d.Parent = row
+    allCards[#allCards + 1] = { frame = row, page = pageName, text = string.lower(title .. " " .. desc) }
+    return row
+end
+
+local function toggle(row, get, set)
+    local b = Instance.new("TextButton")
+    b.AnchorPoint = Vector2.new(1, 0.5)
+    b.Position = UDim2.new(1, -20, 0.5, 0)
+    b.Size = UDim2.new(0, 60, 0, 32)
+    b.Text = ""
+    b.AutoButtonColor = false
+    b.BackgroundColor3 = CTRL
     b.BorderSizePixel = 0
     b.Parent = row
     Instance.new("UICorner", b).CornerRadius = UDim.new(1, 0)
-    local dot = Instance.new("Frame")
-    dot.Size = UDim2.new(0, 16, 0, 16)
-    dot.Position = UDim2.new(0, 3, 0.5, -8)
-    dot.BackgroundColor3 = Color3.fromRGB(120, 120, 140)
-    dot.BorderSizePixel = 0
-    dot.Parent = b
-    Instance.new("UICorner", dot).CornerRadius = UDim.new(1, 0)
+    local grad = Instance.new("UIGradient", b)
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, ACCENT),
+        ColorSequenceKeypoint.new(1, ACCENT_D),
+    })
+    grad.Enabled = false
+    local dot2 = Instance.new("Frame")
+    dot2.Size = UDim2.new(0, 26, 0, 26)
+    dot2.Position = UDim2.new(0, 3, 0.5, -13)
+    dot2.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    dot2.BorderSizePixel = 0
+    dot2.Parent = b
+    Instance.new("UICorner", dot2).CornerRadius = UDim.new(1, 0)
     local function paint()
         if get() then
-            b.BackgroundColor3 = Color3.fromRGB(150, 180, 255)
-            dot.Position = UDim2.new(1, -19, 0.5, -8)
-            dot.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
+            grad.Enabled = true
+            dot2.Position = UDim2.new(1, -29, 0.5, -13)
         else
-            b.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
-            dot.Position = UDim2.new(0, 3, 0.5, -8)
-            dot.BackgroundColor3 = Color3.fromRGB(120, 120, 140)
+            grad.Enabled = false
+            b.BackgroundColor3 = CTRL
+            dot2.Position = UDim2.new(0, 3, 0.5, -13)
         end
     end
     b.MouseButton1Click:Connect(function() set(not get()) paint() end)
     paint()
+    return { repaint = paint }
 end
 
-section("FARM", 0)
-toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
+section(homePage, "STATS", 1)
+do
+    local statRow = Instance.new("Frame")
+    statRow.Size = UDim2.new(1, 0, 0, 120)
+    statRow.BackgroundTransparency = 1
+    statRow.LayoutOrder = 2
+    statRow.Parent = homePage
+    local statList = Instance.new("UIListLayout", statRow)
+    statList.FillDirection = Enum.FillDirection.Horizontal
+    statList.Padding = UDim.new(0, 14)
+    statList.SortOrder = Enum.SortOrder.LayoutOrder
+    local function statTile(label, order, valName, valSize, valColor, subName, subText)
+        local tile = Instance.new("Frame")
+        tile.Size = UDim2.new(0.3333, -10, 1, 0)
+        tile.BackgroundColor3 = CARD
+        tile.BorderSizePixel = 0
+        tile.ClipsDescendants = true
+        tile.LayoutOrder = order
+        tile.Parent = statRow
+        Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 16)
+        local sst = Instance.new("UIStroke", tile)
+        sst.Color = STROKE
+        sst.Thickness = 1
+        sst.Transparency = 0.45
+        sst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        addSheen(tile)
+        local lab = Instance.new("TextLabel")
+        lab.Position = UDim2.new(0, 16, 0, 10)
+        lab.Size = UDim2.new(1, -32, 0, 16)
+        lab.BackgroundTransparency = 1
+        lab.Text = label
+        lab.Font = Enum.Font.GothamBold
+        lab.TextSize = 12
+        lab.TextXAlignment = Enum.TextXAlignment.Left
+        lab.TextColor3 = MUT
+        lab.Parent = tile
+        local val = Instance.new("TextLabel")
+        val.Name = valName
+        val.Position = UDim2.new(0, 16, 0, 30)
+        val.Size = UDim2.new(1, -32, 0, 40)
+        val.BackgroundTransparency = 1
+        val.Text = "-"
+        val.Font = Enum.Font.GothamBold
+        val.TextSize = valSize
+        val.TextXAlignment = Enum.TextXAlignment.Left
+        val.TextTruncate = Enum.TextTruncate.AtEnd
+        val.TextColor3 = valColor
+        val.Parent = tile
+        local sub = Instance.new("TextLabel")
+        sub.Name = subName
+        sub.Position = UDim2.new(0, 16, 0, 74)
+        sub.Size = UDim2.new(1, -32, 0, 20)
+        sub.BackgroundTransparency = 1
+        sub.Text = subText
+        sub.Font = Enum.Font.Gotham
+        sub.TextSize = 12
+        sub.TextXAlignment = Enum.TextXAlignment.Left
+        sub.TextTruncate = Enum.TextTruncate.AtEnd
+        sub.TextColor3 = MUT
+        sub.Parent = tile
+        allCards[#allCards + 1] = { frame = tile, page = "Home", text = string.lower(label .. " stats") }
+    end
+    statTile("REROLLS", 1, "CWValRolls", 28, GRN, "CWSubRolls", "seed rerolls")
+    statTile("FARM TIME", 2, "CWValTime", 28, TXT, "CWSubTime", "active total")
+    statTile("PHASE", 3, "CWValPhase", 22, TXT, "CWSubPhase", "")
+end
+
+section(farmPage, "FARM", 1)
+toggle(card(farmPage, "Farm", "Auto Farm Seeds", "Reroll, wait, collect until empty.", 2),
+    function() return getgenv().CW_Farm end,
     function(v)
         if v then getgenv().CW_FarmSince = os.clock()
         elseif getgenv().CW_FarmSince then
@@ -646,69 +1002,97 @@ toggle("Auto Farm Seeds", 24, function() return getgenv().CW_Farm end,
             pcall(shakeOff)
         end
     end)
-toggle("Auto Frenzy", 56, function() return getgenv().CW_Frenzy end,
+toggle(card(farmPage, "Farm", "Auto Frenzy", "Fire collect remotes each cycle.", 3),
+    function() return getgenv().CW_Frenzy end,
     function(v) getgenv().CW_Frenzy = v end)
-local afk = Instance.new("TextLabel")
-afk.Position = UDim2.new(0, 0, 0, 88)
-afk.Size = UDim2.new(1, 0, 0, 14)
-afk.BackgroundTransparency = 1
-afk.Text = "AntiAFK always on"
-afk.Font = Enum.Font.Gotham
-afk.TextSize = 11
-afk.TextXAlignment = Enum.TextXAlignment.Left
-afk.TextColor3 = Color3.fromRGB(110, 200, 130)
-afk.Parent = body
 
-section("PERF", 104)
-toggle("Low Quality", 128, function() return getgenv().CW_LowQ end,
+section(perfPage, "PERFORMANCE", 1)
+toggle(card(perfPage, "Performance", "Low Quality", "Strip effects, lights, shadows. Restores exactly.", 2),
+    function() return getgenv().CW_LowQ end,
     function(v) getgenv().CW_LowQ = v if v then lowQOn() else lowQOff() end end)
 
-local foot = Instance.new("TextLabel")
-foot.Name = "CWFoot"
-foot.Position = UDim2.new(0, 142, 1, -28)
-foot.Size = UDim2.new(1, -154, 0, 16)
-foot.BackgroundTransparency = 1
-foot.Text = "Rerolls: 0  |  00:00"
-foot.Font = Enum.Font.Gotham
-foot.TextSize = 11
-foot.TextXAlignment = Enum.TextXAlignment.Left
-foot.TextColor3 = Color3.fromRGB(110, 200, 130)
-foot.Parent = main
+local bgSheen = Instance.new("Frame")
+bgSheen.Name = "BgSheen"
+bgSheen.Size = UDim2.new(1, 0, 1, 0)
+bgSheen.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+bgSheen.BackgroundTransparency = 0
+bgSheen.BorderSizePixel = 0
+bgSheen.Active = false
+bgSheen.ZIndex = 0
+bgSheen.Parent = main
+do
+    local bgGrad = Instance.new("UIGradient")
+    bgGrad.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+    bgGrad.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 1),
+        NumberSequenceKeypoint.new(0.4, 1),
+        NumberSequenceKeypoint.new(0.5, 0.88),
+        NumberSequenceKeypoint.new(0.6, 1),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    bgGrad.Rotation = 20
+    bgGrad.Offset = Vector2.new(2, 0)
+    bgGrad.Parent = bgSheen
+    sheenGrads[#sheenGrads + 1] = bgGrad
+end
 
 local btnMin = Instance.new("TextButton")
-btnMin.AnchorPoint = Vector2.new(1, 0)
-btnMin.Position = UDim2.new(1, -40, 0, 8)
-btnMin.Size = UDim2.new(0, 26, 0, 26)
+btnMin.AnchorPoint = Vector2.new(1, 0.5)
+btnMin.Position = UDim2.new(1, -58, 0.5, 0)
+btnMin.Size = UDim2.new(0, 38, 0, 38)
 btnMin.Text = "–"
 btnMin.Font = Enum.Font.GothamBold
-btnMin.TextSize = 14
-btnMin.TextColor3 = Color3.fromRGB(235, 235, 245)
-btnMin.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+btnMin.TextSize = 18
+btnMin.TextColor3 = TXT
+btnMin.BackgroundColor3 = Color3.fromRGB(38, 38, 54)
 btnMin.BorderSizePixel = 0
-btnMin.Parent = main
-Instance.new("UICorner", btnMin).CornerRadius = UDim.new(0, 6)
+btnMin.AutoButtonColor = true
+btnMin.Parent = header
+Instance.new("UICorner", btnMin).CornerRadius = UDim.new(0, 12)
+do
+    local mst = Instance.new("UIStroke", btnMin)
+    mst.Color = STROKE
+    mst.Thickness = 1
+    mst.Transparency = 0.5
+    mst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
 
 local btnX = Instance.new("TextButton")
-btnX.AnchorPoint = Vector2.new(1, 0)
-btnX.Position = UDim2.new(1, -8, 0, 8)
-btnX.Size = UDim2.new(0, 26, 0, 26)
+btnX.AnchorPoint = Vector2.new(1, 0.5)
+btnX.Position = UDim2.new(1, -12, 0.5, 0)
+btnX.Size = UDim2.new(0, 38, 0, 38)
 btnX.Text = "X"
 btnX.Font = Enum.Font.GothamBold
-btnX.TextSize = 13
-btnX.TextColor3 = Color3.fromRGB(255, 120, 120)
-btnX.BackgroundColor3 = Color3.fromRGB(45, 45, 60)
+btnX.TextSize = 16
+btnX.TextColor3 = Color3.fromRGB(255, 150, 150)
+btnX.BackgroundColor3 = Color3.fromRGB(38, 38, 54)
 btnX.BorderSizePixel = 0
-btnX.Parent = main
-Instance.new("UICorner", btnX).CornerRadius = UDim.new(0, 6)
+btnX.AutoButtonColor = true
+btnX.Parent = header
+Instance.new("UICorner", btnX).CornerRadius = UDim.new(0, 12)
+do
+    local xst = Instance.new("UIStroke", btnX)
+    xst.Color = STROKE
+    xst.Thickness = 1
+    xst.Transparency = 0.5
+    xst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+end
 
-local collapsed = false
+navItem("Home", 1)
+navItem("Farm", 2)
+navItem("Performance", 3)
+addSheen(search)
+paintNav()
+showPage()
+
 btnMin.MouseButton1Click:Connect(function()
     collapsed = not collapsed
     side.Visible = not collapsed
-    body.Visible = not collapsed
-    foot.Visible = not collapsed
+    content.Visible = not collapsed
+    pillV.Visible = not collapsed
+    pillK.Visible = not collapsed
     btnMin.Text = collapsed and "+" or "–"
-    main.Size = collapsed and UDim2.new(0, 190, 0, 42) or UDim2.new(0, 440, 0, 260)
+    main.Size = collapsed and UDim2.new(0, 300, 0, 60) or UDim2.new(0, 820, 0, 520)
 end)
 btnX.MouseButton1Click:Connect(function()
     getgenv().CW_AutoSeed = false
@@ -720,4 +1104,21 @@ btnX.MouseButton1Click:Connect(function()
     pcall(shakeOff)
     if getgenv().CW_LowQ then getgenv().CW_LowQ = false pcall(lowQOff) end
     gui:Destroy()
+end)
+
+task.spawn(function()
+    while gui.Parent do
+        local paused = collapsed or getgenv().CW_LowQ
+        local off
+        if paused then
+            off = Vector2.new(2, 0)
+        else
+            local t = (os.clock() / 7) % 1
+            off = Vector2.new(1.5 - 3 * t, 0)
+        end
+        for _, gr in ipairs(sheenGrads) do
+            pcall(function() gr.Offset = off end)
+        end
+        task.wait(0.06)
+    end
 end)
