@@ -195,7 +195,9 @@ end
 
 local RunService = game:GetService("RunService")
 local smoothPos, smoothLook = nil, nil
-local function shakeOn()
+getgenv().CW_ShakeWD = (getgenv().CW_ShakeWD or 0) + 1
+local shakeWD = getgenv().CW_ShakeWD
+local function killGameCam()
     pcall(function()
         local cc = ((gethui and gethui()) or game:GetService("CoreGui")):FindFirstChild("CenterCameraUI")
         if cc then cc:Destroy() end
@@ -204,18 +206,27 @@ local function shakeOn()
         pcall(function() getgenv().CenterCameraConnection:Disconnect() end)
         getgenv().CenterCameraConnection = nil
     end
+end
+local function shakeOn()
+    killGameCam()
     smoothPos, smoothLook = nil, nil
     pcall(function() RunService:UnbindFromRenderStep("CW_AntiShake") end)
-    RunService:BindToRenderStep("CW_AntiShake", Enum.RenderPriority.Last.Value + 1, function()
+    RunService:BindToRenderStep("CW_AntiShake", Enum.RenderPriority.Last.Value + 1, function(dt)
         if not getgenv().CW_AntiShake then return end
+        getgenv().CW_ShakeBeat = os.clock()
         local cam = workspace.CurrentCamera
         if not cam then return end
+        if cam.CameraType == Enum.CameraType.Scriptable then
+            smoothPos, smoothLook = nil, nil
+            return
+        end
         if cam.CameraType ~= Enum.CameraType.Custom then
             cam.CameraType = Enum.CameraType.Custom
         end
         local cf = cam.CFrame
         local p = cf.Position
-        local a = getgenv().CW_ShakeSmooth or 0.5
+        local stiff = (tonumber(getgenv().CW_ShakeSmooth) or 0.5) * 36
+        local a = 1 - math.exp(-stiff * math.max(dt or 0.016, 1 / 240))
         if not smoothPos or (p - smoothPos).Magnitude > 25 then
             smoothPos, smoothLook = p, cf.LookVector
             return
@@ -238,6 +249,17 @@ local function shakeOff()
     end
 end
 if getgenv().CW_AntiShake then pcall(shakeOn) end
+task.spawn(function()
+    while getgenv().CW_ShakeWD == shakeWD and getgenv().CW_Running do
+        if getgenv().CW_AntiShake then
+            killGameCam()
+            if os.clock() - (getgenv().CW_ShakeBeat or 0) > 2 then
+                pcall(shakeOn)
+            end
+        end
+        task.wait(1)
+    end
+end)
 
 local function inAvatar(v)
     local p = v.Parent
