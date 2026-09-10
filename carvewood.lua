@@ -2,10 +2,7 @@
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
-getgenv().CW_AutoSeed = getgenv().CW_AutoSeed or false
-getgenv().CW_AutoReroll = getgenv().CW_AutoReroll or false
 getgenv().CW_Delay = getgenv().CW_Delay or 0.5
-getgenv().CW_Grabbed = getgenv().CW_Grabbed or 0
 getgenv().CW_Gen = (getgenv().CW_Gen or 0) + 1
 local myGen = getgenv().CW_Gen
 print("[CW] loaded, gen " .. tostring(myGen))
@@ -89,8 +86,6 @@ local function collectSeed(p)
     if not p.Enabled then return false end
     local nm = p.Name
     if not (string.find(nm, "Grab", 1, true) or string.find(nm, "Collect", 1, true)) then return false end
-    getgenv().CW_Tries = (getgenv().CW_Tries or 0) + 1
-    pcall(function() getgenv().CW_Last = p:GetFullName() end)
     pcall(function() fireproximityprompt(p) end)
     return true
 end
@@ -126,7 +121,6 @@ local function grabAll()
     return n
 end
 
-local hookedP = {}
 local function seedPrompt(p)
     if typeof(p) ~= "Instance" or not p:IsA("ProximityPrompt") then return false end
     local nm = p.Name
@@ -146,39 +140,6 @@ local function trackScan()
         end
     end
 end
-
-local function watchPrompt(p)
-    if hookedP[p] then return end
-    hookedP[p] = true
-    task.spawn(function()
-        for _ = 1, 2 do
-            if not getgenv().CW_AutoSeed or getgenv().CW_Farm then break end
-            task.wait(0.5)
-            if p.Parent and collectSeed(p) then
-                getgenv().CW_Grabbed = getgenv().CW_Grabbed + 1
-            end
-        end
-    end)
-end
-
-local function hookTycoon(ty)
-    for _, d in pairs(ty:GetDescendants()) do
-        trackPrompt(d)
-        if seedPrompt(d) then watchPrompt(d) end
-    end
-    ty.DescendantAdded:Connect(function(d)
-        pcall(function()
-            trackPrompt(d)
-            if seedPrompt(d) then watchPrompt(d) end
-        end)
-    end)
-end
-
-local function hookAll()
-    local ty = myTycoon()
-    if ty then pcall(hookTycoon, ty) end
-end
-pcall(hookAll)
 
 local function doReroll()
     local ty = myTycoon()
@@ -572,8 +533,6 @@ end)
 
 task.spawn(function()
     while getgenv().CW_Running and getgenv().CW_Gen == myGen do
-        if getgenv().CW_AutoSeed and not getgenv().CW_Farm then pcall(grabAll) end
-        if getgenv().CW_AutoReroll and not getgenv().CW_Farm then pcall(doReroll) end
         pcall(function()
             local g = ((gethui and gethui()) or game:GetService("CoreGui")):FindFirstChild("CarveWoodUI")
             if not g then return end
@@ -1173,8 +1132,6 @@ btnMin.MouseButton1Click:Connect(function()
     main.Size = collapsed and UDim2.new(0, 300, 0, 60) or UDim2.new(0, 820, 0, 520)
 end)
 btnX.MouseButton1Click:Connect(function()
-    getgenv().CW_AutoSeed = false
-    getgenv().CW_AutoReroll = false
     getgenv().CW_AntiShake = false
     getgenv().CW_Farm = false
     getgenv().CW_Frenzy = false
