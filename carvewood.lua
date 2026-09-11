@@ -1,4 +1,4 @@
---[[ CarveWood v9.1 | Delta mobile | no login, no key ]]
+--[[ CarveWood v9.2 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -18,6 +18,7 @@ getgenv().CW_Frenzy = getgenv().CW_Frenzy or false
 getgenv().CW_CollectCan = getgenv().CW_CollectCan or false
 getgenv().CW_CollectFert = getgenv().CW_CollectFert or false
 getgenv().CW_Trees = getgenv().CW_Trees or false
+getgenv().CW_Fert = getgenv().CW_Fert or false
 getgenv().CW_Prio1 = getgenv().CW_Prio1 or "Hyperwave"
 getgenv().CW_Prio2 = getgenv().CW_Prio2 or "Voidstar"
 getgenv().CW_Prio3 = getgenv().CW_Prio3 or "Birch"
@@ -416,6 +417,96 @@ local function plantPrio(planter)
     return nil
 end
 
+local CW_FertUUID = nil
+local CW_FERT_ID = "DiamondFertilizer"
+local function findFertTool()
+    for _, t in ipairs(LP.Backpack:GetChildren()) do
+        if t:IsA("Tool") and t:GetAttribute("FertilizerId") == CW_FERT_ID then return t end
+    end
+    local ch = LP.Character
+    if ch then
+        for _, t in ipairs(ch:GetChildren()) do
+            if t:IsA("Tool") and t:GetAttribute("FertilizerId") == CW_FERT_ID then return t end
+        end
+    end
+    return nil
+end
+
+-- Fertilizable: Model mit TreePlanter, sichtbar, nicht constructing, kein Mega,
+-- Status Empty/Growing/Mature, Fertilizer abgelaufen oder keiner gesetzt.
+local function fertNeeded(d)
+    if d:GetAttribute("TreePlanter") ~= true then return false end
+    if d:GetAttribute("TreePlanterVisible") == false then return false end
+    if d:GetAttribute("TreePlanterConstructing") == true then return false end
+    if d:GetAttribute("TutorialTree") == true or d:GetAttribute("MegaPlanter") == true then return false end
+    local idx = tonumber(d:GetAttribute("PlanterIndex"))
+    if idx == nil or idx == 0 then return false end
+    local st = d:GetAttribute("TreePlanterStatus")
+    if st ~= "Empty" and st ~= "Growing" and st ~= "Mature" then return false end
+    return os.time() >= (tonumber(d:GetAttribute("TreeFertilizerEndsAt")) or 0)
+end
+
+-- Fertilize mit TP (Server prüft Distanz UND ob das Tool equipped ist).
+local function fertilizePlanter(planter)
+    local idx = tonumber(planter:GetAttribute("PlanterIndex"))
+    if not idx or idx == 0 then return false end
+    local tool = findFertTool()
+    if not tool then return false end
+    local h = hrp()
+    if not h then return false end
+    if not CW_FertUUID then CW_FertUUID = resolveRoute("FertilizePlanter") end
+    if not CW_FertUUID then return false end
+    local rem = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
+    rem = rem and rem:FindFirstChild(CW_FertUUID)
+    if not rem then CW_FertUUID = nil return false end
+    local ty = myTycoon()
+    if not ty then return false end
+    local pp
+    pcall(function() pp = planter:GetPivot().Position end)
+    if typeof(pp) ~= "Vector3" then return false end
+    local target = planter:FindFirstChildWhichIsA("BasePart", true) or planter
+    local dest = CFrame.new(pp + Vector3.new(0, 4, 6))
+    local ch = LP.Character
+    local wasEquipped = tool.Parent == ch
+    pcall(function() tool.Parent = ch end)
+    local done = false
+    for _ = 1, 4 do
+        if not (getgenv().CW_Running and getgenv().CW_Fert) then break end
+        if not h.Parent then break end
+        pcall(function() h.CFrame = dest end)
+        local ok, r = pcall(function()
+            return rem:InvokeServer({
+                PlanterIndex = idx,
+                ItemId = CW_FERT_ID,
+                DirectlyTargeted = true,
+                TargetedInstance = target,
+                TycoonName = ty.Name,
+            })
+        end)
+        if not (ok and type(r) == "table") then break end
+        if r.Success == true then
+            getgenv().CW_LastTree = "fertilized #" .. tostring(idx) .. " " .. os.date("%H:%M:%S")
+            done = true
+            break
+        end
+        local msg = tostring(r.Code or r.Error or r.Message or "")
+        if string.find(msg, "TooFar", 1, true) or string.find(msg, "loser", 1, true) then
+            task.wait(0.4)
+        elseif string.find(msg, "NotEquipped", 1, true) then
+            pcall(function() tool.Parent = LP.Character end)
+            task.wait(0.3)
+        else
+            break
+        end
+    end
+    if not wasEquipped then
+        pcall(function()
+            if tool.Parent == LP.Character then tool.Parent = LP.Backpack end
+        end)
+    end
+    return done
+end
+
 local function dropContainer()
     local c = nil
     pcall(function()
@@ -574,7 +665,7 @@ task.spawn(function()
     local planterCache = {}
     while getgenv().CW_Running and getgenv().CW_Gen == myGen do
         local didWork = false
-        if getgenv().CW_Trees then
+        if getgenv().CW_Trees or getgenv().CW_Fert then
             local ty = nil
             pcall(function() ty = myTycoon() end)
             if ty then
@@ -603,26 +694,38 @@ task.spawn(function()
                         end
                     end)
                 end
-                pcall(function()
-                    for _, d in ipairs(planterCache) do
-                        if not getgenv().CW_Trees then break end
-                        if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty" then
-                            if plantPrio(d) then didWork = true end
+                if getgenv().CW_Trees then
+                    pcall(function()
+                        for _, d in ipairs(planterCache) do
+                            if not getgenv().CW_Trees then break end
+                            if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty" then
+                                if plantPrio(d) then didWork = true end
+                            end
                         end
-                    end
-                end)
-                pcall(function()
-                    local CS = game:GetService("CollectionService")
-                    for _, t in ipairs(CS:GetTagged("ChoppableTree")) do
-                        if not getgenv().CW_Trees then break end
-                        if t:IsDescendantOf(ty) and t:GetAttribute("TreeMature") == true
-                            and t:GetAttribute("TreeFelling") ~= true
-                            and prios[tostring(t:GetAttribute("TreeType"))] then
-                            if chopAndCollect(t) then didWork = true end
-                            break
+                    end)
+                    pcall(function()
+                        local CS = game:GetService("CollectionService")
+                        for _, t in ipairs(CS:GetTagged("ChoppableTree")) do
+                            if not getgenv().CW_Trees then break end
+                            if t:IsDescendantOf(ty) and t:GetAttribute("TreeMature") == true
+                                and t:GetAttribute("TreeFelling") ~= true
+                                and prios[tostring(t:GetAttribute("TreeType"))] then
+                                if chopAndCollect(t) then didWork = true end
+                                break
+                            end
                         end
-                    end
-                end)
+                    end)
+                end
+                if getgenv().CW_Fert then
+                    pcall(function()
+                        for _, d in ipairs(planterCache) do
+                            if not getgenv().CW_Fert then break end
+                            if d.Parent and fertNeeded(d) then
+                                if fertilizePlanter(d) then didWork = true end
+                            end
+                        end
+                    end)
+                end
                 if save then pcall(function() local h = hrp() if h then h.CFrame = save end end) end
             end
         end
@@ -1150,7 +1253,7 @@ local function pill(text, x, color)
     l.Parent = p
     return p
 end
-local pillV = pill("v9.1", 212, ACCENT)
+local pillV = pill("v9.2", 212, ACCENT)
 local pillK = pill("no key", 284, MUT)
 
 local side = Instance.new("Frame")
@@ -1303,6 +1406,14 @@ function applySearch()
             c.frame.Visible = (q == "" or string.find(c.text, q, 1, true) ~= nil)
         else
             c.frame.Visible = (q == "")
+        end
+    end
+    if q ~= "" then
+        for _, c in ipairs(allCards) do
+            if c.root and c.page == currentPage and c.frame.Visible then
+                c.root.Visible = true
+                if c.open then c.open(true) end
+            end
         end
     end
 end
@@ -1463,19 +1574,116 @@ local function closeDD2()
     end
 end
 
-local function dropdown2(page, pageName, title, desc, cardOrder, listOrder, options, get, set)
-    local row = card(page, pageName, title, desc, cardOrder, 76)
+-- Expandable Card: Header mit Switch + Chevron, Klick klappt Body mit Sub-Rows auf.
+local function expandCard(page, pageName, title, desc, order, h)
+    local hh = h or 72
+    local row = card(page, pageName, title, desc, order, hh)
+    local body = Instance.new("Frame")
+    body.Name = "Body"
+    body.Position = UDim2.new(0, 0, 0, hh)
+    body.Size = UDim2.new(1, 0, 0, 0)
+    body.BackgroundTransparency = 1
+    body.AutomaticSize = Enum.AutomaticSize.Y
+    body.Visible = false
+    body.Parent = row
+    local bl = Instance.new("UIListLayout", body)
+    bl.Padding = UDim.new(0, 4)
+    bl.SortOrder = Enum.SortOrder.LayoutOrder
+    local bp = Instance.new("UIPadding", body)
+    bp.PaddingTop = UDim.new(0, 6)
+    bp.PaddingBottom = UDim.new(0, 12)
+    local dv = Instance.new("Frame")
+    dv.Size = UDim2.new(1, -40, 0, 1)
+    dv.BackgroundColor3 = STROKE
+    dv.BackgroundTransparency = 0.4
+    dv.BorderSizePixel = 0
+    dv.LayoutOrder = -10
+    dv.Parent = body
+    local open = false
+    local function fit()
+        row.Size = UDim2.new(1, 0, 0, open and (hh + body.AbsoluteSize.Y) or hh)
+    end
+    body:GetPropertyChangedSignal("AbsoluteSize"):Connect(fit)
+    local hb = Instance.new("TextButton")
+    hb.Size = UDim2.new(1, -92, 0, hh)
+    hb.BackgroundTransparency = 1
+    hb.Text = ""
+    hb.AutoButtonColor = false
+    hb.Parent = row
+    local chev = Instance.new("TextLabel")
+    chev.AnchorPoint = Vector2.new(1, 0.5)
+    chev.Position = UDim2.new(1, -2, 0.5, 0)
+    chev.Size = UDim2.new(0, 20, 0, 20)
+    chev.BackgroundTransparency = 1
+    chev.Text = "▾"
+    chev.Font = Enum.Font.GothamBold
+    chev.TextSize = 15
+    chev.TextColor3 = MUT
+    chev.Parent = hb
+    local function setOpen(v)
+        open = v
+        body.Visible = v
+        chev.Text = v and "▴" or "▾"
+        chev.TextColor3 = v and ACCENT or MUT
+        if not v then
+            for _, f in ipairs(DD2_LISTS) do
+                if f:IsDescendantOf(body) then f.Visible = false end
+            end
+        end
+        fit()
+    end
+    hb.MouseButton1Click:Connect(function() setOpen(not open) end)
+    return { frame = row, body = body, setOpen = setOpen }
+end
+
+-- Sub-Row in einem Expand-Body: Punkt + Label, registriert für Suche.
+local function subRow(body, pageName, title, rootCard, order)
+    local r = Instance.new("Frame")
+    r.Size = UDim2.new(1, 0, 0, 46)
+    r.BackgroundTransparency = 1
+    r.LayoutOrder = order
+    r.Parent = body
+    local dt = Instance.new("Frame")
+    dt.Size = UDim2.new(0, 6, 0, 6)
+    dt.Position = UDim2.new(0, 22, 0.5, -3)
+    dt.BackgroundColor3 = STROKE
+    dt.BorderSizePixel = 0
+    dt.Parent = r
+    Instance.new("UICorner", dt).CornerRadius = UDim.new(1, 0)
+    local l = Instance.new("TextLabel")
+    l.Position = UDim2.new(0, 40, 0, 0)
+    l.Size = UDim2.new(1, -250, 1, 0)
+    l.BackgroundTransparency = 1
+    l.Text = title
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 15
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    l.TextColor3 = TXT
+    l.Parent = r
+    allCards[#allCards + 1] = { frame = r, page = pageName, text = string.lower(title),
+        root = rootCard.frame, open = rootCard.setOpen }
+    return r
+end
+
+local function subToggle(body, pageName, title, rootCard, order, get, set)
+    local r = subRow(body, pageName, title, rootCard, order)
+    return toggle(r, get, set)
+end
+
+-- Sub-Dropdown: wie dropdown2, aber Row + Liste leben im Expand-Body.
+local function subDropdown(body, pageName, title, rootCard, order, options, get, set)
+    local r = subRow(body, pageName, title, rootCard, order)
     local b = Instance.new("TextButton")
     b.AnchorPoint = Vector2.new(1, 0.5)
     b.Position = UDim2.new(1, -20, 0.5, 0)
-    b.Size = UDim2.new(0, 200, 0, 36)
+    b.Size = UDim2.new(0, 190, 0, 32)
     b.BackgroundColor3 = CTRL
     b.BorderSizePixel = 0
     b.AutoButtonColor = true
     b.Font = Enum.Font.GothamBold
     b.TextSize = 14
     b.TextTruncate = Enum.TextTruncate.AtEnd
-    b.Parent = row
+    b.Parent = r
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
     local function optOf(v)
         for _, o in ipairs(options) do
@@ -1489,14 +1697,15 @@ local function dropdown2(page, pageName, title, desc, cardOrder, listOrder, opti
         b.TextColor3 = (o and RARITY_COLORS[o.rarity]) or TXT
     end
     local list = Instance.new("Frame")
-    list.Size = UDim2.new(1, 0, 0, 320)
-    list.BackgroundColor3 = CARD
+    list.Size = UDim2.new(1, -16, 0, 210)
+    list.Position = UDim2.new(0, 8, 0, 0)
+    list.BackgroundColor3 = SIDE
     list.BorderSizePixel = 0
     list.ClipsDescendants = true
-    list.LayoutOrder = listOrder
+    list.LayoutOrder = order + 1
     list.Visible = false
-    list.Parent = page
-    Instance.new("UICorner", list).CornerRadius = UDim.new(0, 16)
+    list.Parent = body
+    Instance.new("UICorner", list).CornerRadius = UDim.new(0, 10)
     local lst = Instance.new("UIStroke", list)
     lst.Color = STROKE
     lst.Thickness = 1
@@ -1504,8 +1713,8 @@ local function dropdown2(page, pageName, title, desc, cardOrder, listOrder, opti
     lst.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
     DD2_LISTS[#DD2_LISTS + 1] = list
     local sc = Instance.new("ScrollingFrame")
-    sc.Size = UDim2.new(1, -16, 1, -16)
-    sc.Position = UDim2.new(0, 8, 0, 8)
+    sc.Size = UDim2.new(1, -12, 1, -12)
+    sc.Position = UDim2.new(0, 6, 0, 6)
     sc.BackgroundTransparency = 1
     sc.BorderSizePixel = 0
     sc.ScrollBarThickness = 3
@@ -1520,8 +1729,8 @@ local function dropdown2(page, pageName, title, desc, cardOrder, listOrder, opti
     for i, opt in ipairs(options) do
         local col = RARITY_COLORS[opt.rarity] or TXT
         local ob = Instance.new("TextButton")
-        ob.Size = UDim2.new(1, 0, 0, 38)
-        ob.BackgroundColor3 = (opt.value == cur) and CTRL or CARD
+        ob.Size = UDim2.new(1, 0, 0, 34)
+        ob.BackgroundColor3 = (opt.value == cur) and CTRL or SIDE
         ob.Text = ""
         ob.AutoButtonColor = true
         ob.LayoutOrder = i
@@ -1536,19 +1745,19 @@ local function dropdown2(page, pageName, title, desc, cardOrder, listOrder, opti
         dot4.Parent = ob
         Instance.new("UICorner", dot4).CornerRadius = UDim.new(1, 0)
         local nm = Instance.new("TextLabel")
-        nm.Position = UDim2.new(0, 32, 0, 2)
-        nm.Size = UDim2.new(1, -42, 0, 22)
+        nm.Position = UDim2.new(0, 32, 0, 0)
+        nm.Size = UDim2.new(1, -42, 0, 20)
         nm.BackgroundTransparency = 1
         nm.Text = opt.value
         nm.Font = Enum.Font.GothamBold
-        nm.TextSize = 15
+        nm.TextSize = 14
         nm.TextXAlignment = Enum.TextXAlignment.Left
         nm.TextTruncate = Enum.TextTruncate.AtEnd
         nm.TextColor3 = col
         nm.Parent = ob
         local rl = Instance.new("TextLabel")
-        rl.Position = UDim2.new(0, 32, 0, 22)
-        rl.Size = UDim2.new(1, -42, 0, 14)
+        rl.Position = UDim2.new(0, 32, 0, 19)
+        rl.Size = UDim2.new(1, -42, 0, 13)
         rl.BackgroundTransparency = 1
         rl.Text = opt.rarity
         rl.Font = Enum.Font.Gotham
@@ -1639,53 +1848,60 @@ do
 end
 
 section(farmPage, "FARM", 1)
-toggle(card(farmPage, "Farm", "Auto Farm Seeds", "Reroll, wait, collect until empty.", 2),
-    function() return getgenv().CW_Farm end,
-    function(v)
-        if v then getgenv().CW_FarmSince = os.clock()
-        elseif getgenv().CW_FarmSince then
-            getgenv().CW_FarmTime = (getgenv().CW_FarmTime or 0) + (os.clock() - getgenv().CW_FarmSince)
-            getgenv().CW_FarmSince = nil
-        end
-        getgenv().CW_Farm = v
-        if v then
-            if not getgenv().CW_AntiShake then
-                getgenv().CW_AutoShake = true
-                getgenv().CW_AntiShake = true
-                pcall(shakeOn)
+do
+    local ec = expandCard(farmPage, "Farm", "Auto Farm Seeds", "Reroll, wait, collect until empty.", 2, 72)
+    toggle(ec.frame,
+        function() return getgenv().CW_Farm end,
+        function(v)
+            if v then getgenv().CW_FarmSince = os.clock()
+            elseif getgenv().CW_FarmSince then
+                getgenv().CW_FarmTime = (getgenv().CW_FarmTime or 0) + (os.clock() - getgenv().CW_FarmSince)
+                getgenv().CW_FarmSince = nil
             end
-        elseif getgenv().CW_AutoShake then
-            getgenv().CW_AutoShake = false
-            getgenv().CW_AntiShake = false
-            pcall(shakeOff)
-        end
-    end)
-toggle(card(farmPage, "Farm", "Auto Frenzy", "Fire collect remotes each cycle. Never touches Alien.", 3),
-    function() return getgenv().CW_Frenzy end,
-    function(v) getgenv().CW_Frenzy = v end)
-toggle(card(farmPage, "Farm", "AutoCollect Can 256x", "TP to can, collect, TP back. Skips when 5+ 256x held.", 4),
-    function() return getgenv().CW_CollectCan end,
-    function(v) getgenv().CW_CollectCan = v end)
-toggle(card(farmPage, "Farm", "AutoCollect Diamond Fert", "TP to bin, collect, TP back. No inventory limit.", 5),
-    function() return getgenv().CW_CollectFert end,
-    function(v) getgenv().CW_CollectFert = v end)
+            getgenv().CW_Farm = v
+            if v then
+                if not getgenv().CW_AntiShake then
+                    getgenv().CW_AutoShake = true
+                    getgenv().CW_AntiShake = true
+                    pcall(shakeOn)
+                end
+            elseif getgenv().CW_AutoShake then
+                getgenv().CW_AutoShake = false
+                getgenv().CW_AntiShake = false
+                pcall(shakeOff)
+            end
+        end)
+    subToggle(ec.body, "Farm", "Auto Frenzy — collect remotes each cycle, never Alien", ec, 10,
+        function() return getgenv().CW_Frenzy end,
+        function(v) getgenv().CW_Frenzy = v end)
+    subToggle(ec.body, "Farm", "AutoCollect Can 256x — skips at 5+ held", ec, 20,
+        function() return getgenv().CW_CollectCan end,
+        function(v) getgenv().CW_CollectCan = v end)
+    subToggle(ec.body, "Farm", "AutoCollect Diamond Fert — TP to bin, no limit", ec, 30,
+        function() return getgenv().CW_CollectFert end,
+        function(v) getgenv().CW_CollectFert = v end)
+end
 
 section(treePage, "TREES", 1)
-toggle(card(treePage, "Trees", "Auto Trees", "Plant empty plots by priority, chop mature prio trees, collect.", 2),
-    function() return getgenv().CW_Trees end,
-    function(v) getgenv().CW_Trees = v end)
 do
+    local ec = expandCard(treePage, "Trees", "Auto Trees", "Plant empty plots by priority, chop mature prio trees, collect.", 2, 72)
+    toggle(ec.frame,
+        function() return getgenv().CW_Trees end,
+        function(v) getgenv().CW_Trees = v end)
+    subToggle(ec.body, "Trees", "Auto Fertilize — Diamond 4x on every planter", ec, 10,
+        function() return getgenv().CW_Fert end,
+        function(v) getgenv().CW_Fert = v end)
     local opts = {}
     for _, e in ipairs(CW_TREE_TYPES) do
         opts[#opts + 1] = { value = e[1], rarity = e[2], label = e[1] .. " · " .. e[2] }
     end
-    dropdown2(treePage, "Trees", "Priority 1", "Planted first in every free plot.", 3, 4, opts,
+    subDropdown(ec.body, "Trees", "Priority 1 — planted first", ec, 20, opts,
         function() return getgenv().CW_Prio1 end,
         function(v) getgenv().CW_Prio1 = v end)
-    dropdown2(treePage, "Trees", "Priority 2", "Fallback when Prio 1 has no seeds.", 5, 6, opts,
+    subDropdown(ec.body, "Trees", "Priority 2 — fallback", ec, 30, opts,
         function() return getgenv().CW_Prio2 end,
         function(v) getgenv().CW_Prio2 = v end)
-    dropdown2(treePage, "Trees", "Priority 3", "Fallback when Prio 2 has no seeds.", 7, 8, opts,
+    subDropdown(ec.body, "Trees", "Priority 3 — fallback", ec, 40, opts,
         function() return getgenv().CW_Prio3 end,
         function(v) getgenv().CW_Prio3 = v end)
 end
@@ -1792,6 +2008,7 @@ btnX.MouseButton1Click:Connect(function()
     getgenv().CW_CollectCan = false
     getgenv().CW_CollectFert = false
     getgenv().CW_Trees = false
+    getgenv().CW_Fert = false
     getgenv().CW_Running = false
     pcall(shakeOff)
     if getgenv().CW_LowQ then getgenv().CW_LowQ = false pcall(lowQOff) end
