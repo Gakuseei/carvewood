@@ -1319,23 +1319,15 @@ local function navItem(name, order)
     b.AutoButtonColor = false
     b.Parent = navHolder
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 10)
-    local d = Instance.new("Frame")
-    d.Name = "Dot"
-    d.Size = UDim2.new(0, 10, 0, 10)
-    d.Position = UDim2.new(0, 16, 0.5, -5)
-    d.BackgroundColor3 = Color3.fromRGB(90, 90, 110)
-    d.BorderSizePixel = 0
-    d.Parent = b
-    Instance.new("UICorner", d).CornerRadius = UDim.new(1, 0)
     local l = Instance.new("TextLabel")
-    l.Position = UDim2.new(0, 38, 0, 0)
-    l.Size = UDim2.new(1, -48, 1, 0)
+    l.Position = UDim2.new(0, 18, 0, 0)
+    l.Size = UDim2.new(1, -30, 1, 0)
     l.BackgroundTransparency = 1
     l.Text = name
     l.Font = Enum.Font.GothamBold
     l.TextSize = 15
     l.TextXAlignment = Enum.TextXAlignment.Left
-    l.TextColor3 = MUT
+    l.TextColor3 = Color3.fromRGB(205, 205, 225)
     l.Parent = b
     navBtns[name] = b
     addSheen(b)
@@ -1388,10 +1380,8 @@ function paintNav()
     for name, b in pairs(navBtns) do
         local on = (name == currentPage)
         b.BackgroundColor3 = on and CARD or SIDE
-        local d = b:FindFirstChild("Dot")
-        if d then d.BackgroundColor3 = on and ACCENT or Color3.fromRGB(100, 100, 122) end
         local l = b:FindFirstChildOfClass("TextLabel")
-        if l then l.TextColor3 = on and TXT or MUT end
+        if l then l.TextColor3 = on and TXT or Color3.fromRGB(205, 205, 225) end
     end
 end
 function showPage()
@@ -1610,21 +1600,9 @@ local function expandCard(page, pageName, title, desc, order, h)
     hb.Text = ""
     hb.AutoButtonColor = false
     hb.Parent = row
-    local chev = Instance.new("TextLabel")
-    chev.AnchorPoint = Vector2.new(1, 0.5)
-    chev.Position = UDim2.new(1, -2, 0.5, 0)
-    chev.Size = UDim2.new(0, 20, 0, 20)
-    chev.BackgroundTransparency = 1
-    chev.Text = "▾"
-    chev.Font = Enum.Font.GothamBold
-    chev.TextSize = 15
-    chev.TextColor3 = MUT
-    chev.Parent = hb
     local function setOpen(v)
         open = v
         body.Visible = v
-        chev.Text = v and "▴" or "▾"
-        chev.TextColor3 = v and ACCENT or MUT
         if not v then
             for _, f in ipairs(DD2_LISTS) do
                 if f:IsDescendantOf(body) then f.Visible = false end
@@ -1643,15 +1621,8 @@ local function subRow(body, pageName, title, rootCard, order)
     r.BackgroundTransparency = 1
     r.LayoutOrder = order
     r.Parent = body
-    local dt = Instance.new("Frame")
-    dt.Size = UDim2.new(0, 6, 0, 6)
-    dt.Position = UDim2.new(0, 22, 0.5, -3)
-    dt.BackgroundColor3 = STROKE
-    dt.BorderSizePixel = 0
-    dt.Parent = r
-    Instance.new("UICorner", dt).CornerRadius = UDim.new(1, 0)
     local l = Instance.new("TextLabel")
-    l.Position = UDim2.new(0, 40, 0, 0)
+    l.Position = UDim2.new(0, 28, 0, 0)
     l.Size = UDim2.new(1, -250, 1, 0)
     l.BackgroundTransparency = 1
     l.Text = title
@@ -1871,13 +1842,13 @@ do
                 pcall(shakeOff)
             end
         end)
-    subToggle(ec.body, "Farm", "Auto Frenzy — collect remotes each cycle, never Alien", ec, 10,
+    subToggle(ec.body, "Farm", "Auto Frenzy", ec, 10,
         function() return getgenv().CW_Frenzy end,
         function(v) getgenv().CW_Frenzy = v end)
-    subToggle(ec.body, "Farm", "AutoCollect Can 256x — skips at 5+ held", ec, 20,
+    subToggle(ec.body, "Farm", "AutoCollect Can 256x", ec, 20,
         function() return getgenv().CW_CollectCan end,
         function(v) getgenv().CW_CollectCan = v end)
-    subToggle(ec.body, "Farm", "AutoCollect Diamond Fert — TP to bin, no limit", ec, 30,
+    subToggle(ec.body, "Farm", "AutoCollect Diamond Fert", ec, 30,
         function() return getgenv().CW_CollectFert end,
         function(v) getgenv().CW_CollectFert = v end)
 end
@@ -1888,20 +1859,20 @@ do
     toggle(ec.frame,
         function() return getgenv().CW_Trees end,
         function(v) getgenv().CW_Trees = v end)
-    subToggle(ec.body, "Trees", "Auto Fertilize — Diamond 4x on every planter", ec, 10,
+    subToggle(ec.body, "Trees", "Auto Fertilize", ec, 10,
         function() return getgenv().CW_Fert end,
         function(v) getgenv().CW_Fert = v end)
     local opts = {}
     for _, e in ipairs(CW_TREE_TYPES) do
         opts[#opts + 1] = { value = e[1], rarity = e[2], label = e[1] .. " · " .. e[2] }
     end
-    subDropdown(ec.body, "Trees", "Priority 1 — planted first", ec, 20, opts,
+    subDropdown(ec.body, "Trees", "Priority 1", ec, 20, opts,
         function() return getgenv().CW_Prio1 end,
         function(v) getgenv().CW_Prio1 = v end)
-    subDropdown(ec.body, "Trees", "Priority 2 — fallback", ec, 30, opts,
+    subDropdown(ec.body, "Trees", "Priority 2", ec, 30, opts,
         function() return getgenv().CW_Prio2 end,
         function(v) getgenv().CW_Prio2 = v end)
-    subDropdown(ec.body, "Trees", "Priority 3 — fallback", ec, 40, opts,
+    subDropdown(ec.body, "Trees", "Priority 3", ec, 40, opts,
         function() return getgenv().CW_Prio3 end,
         function(v) getgenv().CW_Prio3 = v end)
 end
