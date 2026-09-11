@@ -1568,6 +1568,11 @@ end
 local function expandCard(page, pageName, title, desc, order, h)
     local hh = h or 72
     local row = card(page, pageName, title, desc, order, hh)
+    local head = Instance.new("Frame")
+    head.Name = "Head"
+    head.Size = UDim2.new(1, 0, 0, hh)
+    head.BackgroundTransparency = 1
+    head.Parent = row
     local body = Instance.new("Frame")
     body.Name = "Body"
     body.Position = UDim2.new(0, 0, 0, hh)
@@ -1599,7 +1604,7 @@ local function expandCard(page, pageName, title, desc, order, h)
     hb.BackgroundTransparency = 1
     hb.Text = ""
     hb.AutoButtonColor = false
-    hb.Parent = row
+    hb.Parent = head
     local function setOpen(v)
         open = v
         body.Visible = v
@@ -1611,7 +1616,7 @@ local function expandCard(page, pageName, title, desc, order, h)
         fit()
     end
     hb.MouseButton1Click:Connect(function() setOpen(not open) end)
-    return { frame = row, body = body, setOpen = setOpen }
+    return { frame = row, body = body, head = head, setOpen = setOpen }
 end
 
 -- Sub-Row in einem Expand-Body: Punkt + Label, registriert für Suche.
@@ -1664,7 +1669,7 @@ local function subDropdown(body, pageName, title, rootCard, order, options, get,
     end
     local function paint()
         local o = optOf(get())
-        b.Text = (o and o.value or tostring(get())) .. "  ▾"
+        b.Text = (o and o.value or tostring(get()))
         b.TextColor3 = (o and RARITY_COLORS[o.rarity]) or TXT
     end
     local list = Instance.new("Frame")
@@ -1821,7 +1826,7 @@ end
 section(farmPage, "FARM", 1)
 do
     local ec = expandCard(farmPage, "Farm", "Auto Farm Seeds", "Reroll, wait, collect until empty.", 2, 72)
-    toggle(ec.frame,
+    toggle(ec.head,
         function() return getgenv().CW_Farm end,
         function(v)
             if v then getgenv().CW_FarmSince = os.clock()
@@ -1856,7 +1861,7 @@ end
 section(treePage, "TREES", 1)
 do
     local ec = expandCard(treePage, "Trees", "Auto Trees", "Plant empty plots by priority, chop mature prio trees, collect.", 2, 72)
-    toggle(ec.frame,
+    toggle(ec.head,
         function() return getgenv().CW_Trees end,
         function(v) getgenv().CW_Trees = v end)
     subToggle(ec.body, "Trees", "Auto Fertilize", ec, 10,
