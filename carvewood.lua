@@ -391,7 +391,7 @@ local function plantPrio(planter)
         pcall(function() h.CFrame = dest end)
         local needCloser = false
         for _, prio in ipairs({getgenv().CW_Prio1, getgenv().CW_Prio2, getgenv().CW_Prio3}) do
-            if type(prio) == "string" and prio ~= "" then
+            if type(prio) == "string" and prio ~= "" and prio ~= "None" then
                 local ok, r = pcall(function()
                     return rem:InvokeServer({PlanterIndex = tonumber(idx), TreeType = prio, TycoonName = ty.Name})
                 end)
@@ -1868,6 +1868,7 @@ do
         function() return getgenv().CW_Fert end,
         function(v) getgenv().CW_Fert = v end)
     local opts = {}
+    opts[#opts + 1] = { value = "None", rarity = "Off" }
     for _, e in ipairs(CW_TREE_TYPES) do
         opts[#opts + 1] = { value = e[1], rarity = e[2], label = e[1] .. " · " .. e[2] }
     end
