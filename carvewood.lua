@@ -1388,7 +1388,7 @@ local function make(class, props, owner)
     return obj
 end
 local function round(obj, radius)
-    make("UICorner", { CornerRadius = UDim.new(0, radius or 8) }, obj)
+    return make("UICorner", { CornerRadius = UDim.new(0, radius or 8) }, obj)
 end
 local function outline(obj, color)
     return make("UIStroke", { Color = color or STROKE, Thickness = 1,
@@ -1472,7 +1472,7 @@ local main = frame(gui, "Main", UDim2.fromOffset(900, 604), UDim2.fromScale(0.5,
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Active = true
 main.ClipsDescendants = true
-round(main, 12)
+local mainCorner = round(main, 12)
 outline(main)
 local header = frame(main, "Header", UDim2.new(1, 0, 0, 64), nil, SIDE)
 local dragHandle = button(header, "DragHandle", UDim2.new(1, -104, 1, 0))
@@ -1518,6 +1518,49 @@ round(footDot, 4)
 local footStatus = text(footer, "Status", "All automations off", UDim2.new(0.66, -36, 1, 0), UDim2.fromOffset(33, 0), 15, MUT)
 local footHint = text(footer, "Hint", UIS.TouchEnabled and "Drag the header to move" or "Right Shift to minimize", UDim2.new(0.34, -24, 1, 0), UDim2.fromScale(0.66, 0), 14, MUT)
 footHint.TextXAlignment = Enum.TextXAlignment.Right
+-- Eingeklappt: eine Pille mit Markenzeichen, Laufstatus und Aufklapp-Pfeil.
+local mini, paintMini
+do
+    mini = frame(main, "Mini", UDim2.new(1, 0, 1, 0), nil, SIDE)
+    mini.Visible = false
+    mini.ZIndex = 6
+    mini.Active = true
+    local badge = frame(mini, "Badge", UDim2.fromOffset(34, 34), UDim2.fromOffset(11, 11), SELECTED)
+    round(badge, 10)
+    icon(badge, "Trees", UDim2.fromOffset(6, 6), ACCENT, 22)
+    text(mini, "Title", "CarveWood", UDim2.fromOffset(150, 20), UDim2.fromOffset(55, 8), 16, TXT, true, true)
+    local dot = frame(mini, "Dot", UDim2.fromOffset(7, 7), UDim2.fromOffset(56, 33), MUT)
+    round(dot, 4)
+    local status = text(mini, "Status", "Idle", UDim2.new(1, -130, 0, 18), UDim2.fromOffset(69, 28), 13, MUT)
+    local expand = button(mini, "Expand", UDim2.fromOffset(38, 38), UDim2.new(1, -9, 0.5, 0), CARD)
+    expand.AnchorPoint = Vector2.new(1, 0.5)
+    expand.ZIndex = 7
+    round(expand, 12)
+    local expandIcon = icon(expand, "Chevron", UDim2.fromOffset(9, 10), MUT, 20)
+    expandIcon.Rotation = 180
+    connect(expand.MouseEnter, function()
+        animate(expand, { BackgroundColor3 = SELECTED }, 0.14)
+        tintIcon(expandIcon, ACCENT)
+    end)
+    connect(expand.MouseLeave, function()
+        animate(expand, { BackgroundColor3 = CARD }, 0.14)
+        tintIcon(expandIcon, MUT)
+    end)
+    local pulse
+    paintMini = function(running, label)
+        status.Text = label
+        dot.BackgroundColor3 = running > 0 and ACCENT or MUT
+        if running > 0 and not pulse then
+            pulse = Tween:Create(dot, TweenInfo.new(0.9, Enum.EasingStyle.Sine,
+                Enum.EasingDirection.InOut, -1, true), { BackgroundTransparency = 0.55 })
+            pulse:Play()
+        elseif running == 0 and pulse then
+            pulse:Cancel()
+            pulse = nil
+            dot.BackgroundTransparency = 0
+        end
+    end
+end
 local content = frame(main, "Content", UDim2.new(1, -208, 1, -102), UDim2.fromOffset(208, 64))
 local pageHead = frame(content, "PageHeader", UDim2.new(1, -48, 0, 96), UDim2.fromOffset(24, 0))
 local pageTitle = text(pageHead, "Title", "Overview", UDim2.new(1, 0, 0, 38), UDim2.fromOffset(0, 24), 29, TXT, true, true)
@@ -1610,11 +1653,9 @@ local function navItem(info, order)
 end
 
 local function section(page, value, order)
-    local row = frame(page, "Section", UDim2.new(1, 0, 0, 32))
+    local row = frame(page, "Section", UDim2.new(1, 0, 0, 30))
     row.LayoutOrder = order
-    local tick = frame(row, "Tick", UDim2.fromOffset(3, 14), UDim2.fromOffset(0, 9), ACCENT)
-    round(tick, 2)
-    text(row, "Label", value, UDim2.new(1, -16, 1, 0), UDim2.fromOffset(14, 0), 15, MUT, true)
+    text(row, "Label", value, UDim2.new(1, 0, 1, 0), UDim2.new(), 15, MUT, true)
     return row
 end
 
@@ -2293,6 +2334,7 @@ round(btnMin, 6)
 local minIcon = icon(btnMin, "Minus", UDim2.fromOffset(12, 12), MUT)
 local plusIcon = icon(btnMin, "Plus", UDim2.fromOffset(12, 12), MUT)
 plusIcon.Visible = false
+plusIcon.Visible = false
 hover(btnMin, SIDE)
 local btnX = button(header, "Close", UDim2.fromOffset(44, 44), UDim2.new(1, -50, 0, 8), SIDE)
 round(btnX, 6)
@@ -2344,7 +2386,7 @@ local function clampPosition()
         math.clamp(cy, size.Y / 2 + 8, math.max(size.Y / 2 + 8, vp.Y - size.Y / 2 - 8)))
 end
 local function layout()
-    if collapsed then return end
+    if collapsed or main:GetAttribute("Animating") then return end
     local w = main.AbsoluteSize.X
     compact = w < 620
     main:SetAttribute("Compact", compact)
@@ -2386,10 +2428,11 @@ end
 local function fitViewport()
     local vp = availableSize()
     fullSize = Vector2.new(math.min(fullSize.X, vp.X - 24), math.min(fullSize.Y, vp.Y - 24))
-    main.Size = collapsed and UDim2.fromOffset(math.min(300, vp.X - 24), 60) or UDim2.fromOffset(fullSize.X, fullSize.Y)
+    main.Size = collapsed and UDim2.fromOffset(math.min(286, vp.X - 24), 58) or UDim2.fromOffset(fullSize.X, fullSize.Y)
     clampPosition()
     layout()
 end
+-- Die Pille wächst aus dem Fenster heraus, darum bleibt das Layout während des Tweens stehen.
 local function setCollapsed(value)
     if value == collapsed then return end
     closeDD2()
@@ -2397,6 +2440,9 @@ local function setCollapsed(value)
     if value then fullSize = main.AbsoluteSize end
     collapsed = value
     main:SetAttribute("Collapsed", value)
+    main:SetAttribute("Animating", true)
+    mini.Visible = value
+    header.Visible = not value
     side.Visible = not value
     content.Visible = not value
     footer.Visible = not value
@@ -2405,10 +2451,16 @@ local function setCollapsed(value)
     searchWrap.Visible = not value and not compact
     title.Visible = true
     mobileSearchOpen = false
-    minIcon.Visible = not value
-    plusIcon.Visible = value
     modal.Visible = false
-    fitViewport()
+    local vp = availableSize()
+    animate(main, { Size = value and UDim2.fromOffset(math.min(286, vp.X - 24), 58)
+        or UDim2.fromOffset(fullSize.X, fullSize.Y) }, 0.34)
+    animate(mainCorner, { CornerRadius = UDim.new(0, value and 29 or 12) }, 0.34)
+    task.delay(0.36, function()
+        main:SetAttribute("Animating", false)
+        clampPosition()
+        if not collapsed then layout() end
+    end)
 end
 connect(btnMin.Activated, function() setCollapsed(not collapsed) end)
 connect(btnX.Activated, function() setCollapsed(false) closeDD2() modal.Visible = true end)
@@ -2444,6 +2496,8 @@ local function beginGesture(input, mode)
     closeDD2()
 end
 connect(dragHandle.InputBegan, function(input) beginGesture(input, "drag") end)
+connect(mini.InputBegan, function(input) beginGesture(input, "drag") end)
+connect(mini.Expand.Activated, function() setCollapsed(false) end)
 connect(resizeHandle.InputBegan, function(input) beginGesture(input, "resize") end)
 connect(UIS.InputChanged, function(input)
     if not pointer then return end
@@ -2497,21 +2551,19 @@ local STATUS_NAMES = {
 }
 task.spawn(function()
     while gui.Parent do
-        if not collapsed then
+        local active = {}
+        for _, entry in ipairs(STATUS_NAMES) do
+            if getgenv()[entry[1]] then active[#active + 1] = entry[2] end
+        end
+        local shown = #active == 0 and "All automations off"
+            or table.concat(active, ", ", 1, math.min(#active, 3))
+        if #active > 3 then shown = shown .. " +" .. (#active - 3) end
+        if collapsed then
+            paintMini(#active, #active == 0 and "Idle" or shown)
+        else
             for _, paint in ipairs(painters) do paint() end
-            local active = {}
-            for _, entry in ipairs(STATUS_NAMES) do
-                if getgenv()[entry[1]] then active[#active + 1] = entry[2] end
-            end
-            if #active == 0 then
-                footDot.BackgroundColor3 = MUT
-                footStatus.Text = "All automations off"
-            else
-                footDot.BackgroundColor3 = ACCENT
-                local shown = table.concat(active, ", ", 1, math.min(#active, 3))
-                if #active > 3 then shown = shown .. " +" .. (#active - 3) end
-                footStatus.Text = shown
-            end
+            footDot.BackgroundColor3 = #active == 0 and MUT or ACCENT
+            footStatus.Text = shown
         end
         task.wait(0.5)
     end
