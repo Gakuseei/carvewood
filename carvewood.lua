@@ -1,4 +1,4 @@
---[[ CarveWood v9.3 | Delta mobile | no login, no key ]]
+--[[ CarveWood v9.4 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -748,159 +748,162 @@ local CW_SHOP_ITEMS = {
     {id = "ChargedEnergyCapsule", name = "Charged Energy Capsule", price = 150, rarity = "Rare"},
     {id = "Recall", name = "Seed Recall", price = 5, rarity = "Common"},
 }
-local CW_SHOP_PRICE = {}
-for _, it in ipairs(CW_SHOP_ITEMS) do CW_SHOP_PRICE[it.id] = it.price end
-local CW_ROLL_GEMS = 100
-local CW_SHOP_ROUTES = {
-    buy = "PurchaseGemStoreStock",
-    gems = "RefreshGemStoreStockWithGems",
-    chips = "RefreshGemStoreStockWithWoodChips",
-}
-local CW_ShopUUID = {}
-local function shopRemote(key)
-    if not CW_ShopUUID[key] then CW_ShopUUID[key] = resolveRoute(CW_SHOP_ROUTES[key]) end
-    if not CW_ShopUUID[key] then return nil end
-    local rem = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
-    rem = rem and rem:FindFirstChild(CW_ShopUUID[key])
-    if not rem then CW_ShopUUID[key] = nil end
-    return rem
-end
-
-local function gemCount()
-    local ls = LP:FindFirstChild("leaderstats")
-    local d = ls and ls:FindFirstChild("Diamonds")
-    return (d and tonumber(d.Value)) or 0
-end
-
-local function gemStore()
-    local ty = myTycoon()
-    local gs = ty and ty:FindFirstChild("GemStore", true)
-    if gs and gs:FindFirstChild("Pedestals") then return gs end
-    return nil
-end
-
-local function shopSlots(gs)
-    local out = {}
-    for _, ped in ipairs(gs.Pedestals:GetChildren()) do
-        local d = ped:FindFirstChild("DailyStockDisplay")
-        if d then
-            out[#out + 1] = { pedestal = ped, display = d,
-                slot = d:GetAttribute("GemStoreStockSlot"),
-                id = tostring(d:GetAttribute("GemStoreStockItemId")),
-                left = tonumber(d:GetAttribute("GemStoreStockRemaining")) or 0 }
-        end
+local shopPicked
+do
+    local CW_SHOP_PRICE = {}
+    for _, it in ipairs(CW_SHOP_ITEMS) do CW_SHOP_PRICE[it.id] = it.price end
+    local CW_ROLL_GEMS = 100
+    local CW_SHOP_ROUTES = {
+        buy = "PurchaseGemStoreStock",
+        gems = "RefreshGemStoreStockWithGems",
+        chips = "RefreshGemStoreStockWithWoodChips",
+    }
+    local CW_ShopUUID = {}
+    local function shopRemote(key)
+        if not CW_ShopUUID[key] then CW_ShopUUID[key] = resolveRoute(CW_SHOP_ROUTES[key]) end
+        if not CW_ShopUUID[key] then return nil end
+        local rem = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
+        rem = rem and rem:FindFirstChild(CW_ShopUUID[key])
+        if not rem then CW_ShopUUID[key] = nil end
+        return rem
     end
-    return out
-end
 
-local function shopPicked(id)
-    local pick = getgenv().CW_ShopPick
-    return type(pick) == "table" and pick[id] == true
-end
+    local function gemCount()
+        local ls = LP:FindFirstChild("leaderstats")
+        local d = ls and ls:FindFirstChild("Diamonds")
+        return (d and tonumber(d.Value)) or 0
+    end
 
-local shopHalted = false
-local function gemBudget(cost)
-    if gemCount() - cost >= (tonumber(getgenv().CW_ShopFloor) or 0) then return true end
-    shopHalted = true
-    return false
-end
+    local function gemStore()
+        local ty = myTycoon()
+        local gs = ty and ty:FindFirstChild("GemStore", true)
+        if gs and gs:FindFirstChild("Pedestals") then return gs end
+        return nil
+    end
 
--- Model-Pivots im Store zeigen teils ins Nirgendwo, darum immer ein echtes Part.
-local function shopStand(inst)
-    local pos
-    pcall(function()
-        local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
-        pos = part and part.Position
-    end)
-    if typeof(pos) ~= "Vector3" then return nil end
-    return pos
-end
+    local function shopSlots(gs)
+        local out = {}
+        for _, ped in ipairs(gs.Pedestals:GetChildren()) do
+            local d = ped:FindFirstChild("DailyStockDisplay")
+            if d then
+                out[#out + 1] = { pedestal = ped, display = d,
+                    slot = d:GetAttribute("GemStoreStockSlot"),
+                    id = tostring(d:GetAttribute("GemStoreStockItemId")),
+                    left = tonumber(d:GetAttribute("GemStoreStockRemaining")) or 0 }
+            end
+        end
+        return out
+    end
 
-local function shopTP(pos)
-    local h = hrp()
-    if not h then return false end
-    pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 3, 5), pos) end)
-    task.wait(0.35)
-    return true
-end
+    shopPicked = function(id)
+        local pick = getgenv().CW_ShopPick
+        return type(pick) == "table" and pick[id] == true
+    end
 
--- Kauft einen Slot leer. Server misst die Distanz pro Pedestal, darum TP je Versuch.
-local function buySlot(entry)
-    local rem = shopRemote("buy")
-    local pos = shopStand(entry.pedestal)
-    if not rem or not pos then return 0 end
-    local bought = 0
-    for _ = 1, 8 do
-        if not (getgenv().CW_Running and getgenv().CW_Shop) then break end
-        if (tonumber(entry.display:GetAttribute("GemStoreStockRemaining")) or 0) <= 0 then break end
-        if not gemBudget(CW_SHOP_PRICE[entry.id] or 0) then break end
-        shopTP(pos)
-        local ok, r = pcall(function()
-            return rem:InvokeServer({ Slot = entry.slot, ItemId = entry.id,
-                PeriodIndex = entry.display:GetAttribute("GemStoreStockPeriod") })
+    local shopHalted = false
+    local function gemBudget(cost)
+        if gemCount() - cost >= (tonumber(getgenv().CW_ShopFloor) or 0) then return true end
+        shopHalted = true
+        return false
+    end
+
+    -- Model-Pivots im Store zeigen teils ins Nirgendwo, darum immer ein echtes Part.
+    local function shopStand(inst)
+        local pos
+        pcall(function()
+            local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+            pos = part and part.Position
         end)
-        if not ok or type(r) ~= "table" then break end
-        if r.Success == true then
-            bought = bought + 1
-            getgenv().CW_ShopBought = (getgenv().CW_ShopBought or 0) + 1
-            task.wait(0.15)
-        elseif tostring(r.Code) == "NotEnoughGems" then
-            shopHalted = true
-            break
-        elseif tostring(r.Code) ~= "TooFar" then
-            break
-        end
+        if typeof(pos) ~= "Vector3" then return nil end
+        return pos
     end
-    return bought
-end
 
-local function refreshStock(gs)
-    local chips = getgenv().CW_ShopPay == "Wood Chips"
-    if not chips and not gemBudget(CW_ROLL_GEMS) then return false end
-    local rem = shopRemote(chips and "chips" or "gems")
-    local btn = gs:FindFirstChild("RerollStockButton")
-    local pos = btn and shopStand(btn)
-    if not rem or not pos then return false end
-    shopTP(pos)
-    local ok, r = pcall(function()
-        return rem:InvokeServer({ PeriodIndex = gs:GetAttribute("GemStoreStockPeriod"),
-            RollIndex = gs:GetAttribute("GemStoreStockRollIndex") })
-    end)
-    if ok and type(r) == "table" and r.Success == true then
-        getgenv().CW_ShopRolls = (getgenv().CW_ShopRolls or 0) + 1
+    local function shopTP(pos)
+        local h = hrp()
+        if not h then return false end
+        pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 3, 5), pos) end)
         task.wait(0.35)
         return true
     end
-    return false
-end
 
-task.spawn(function()
-    while getgenv().CW_Running and getgenv().CW_Gen == myGen do
-        local didWork = false
-        if getgenv().CW_Shop then
-            local gs = gemStore()
-            if gs then
-                local h = hrp()
-                local save = h and h.CFrame
-                shopHalted = false
-                for _, e in ipairs(shopSlots(gs)) do
-                    if shopPicked(e.id) and e.left > 0 and not shopHalted then
-                        if buySlot(e) > 0 then didWork = true end
-                    end
-                end
-                if getgenv().CW_ShopRoll and not shopHalted then
-                    local waiting = false
-                    for _, e in ipairs(shopSlots(gs)) do
-                        if shopPicked(e.id) and e.left > 0 then waiting = true end
-                    end
-                    if not waiting and refreshStock(gs) then didWork = true end
-                end
-                if save then pcall(function() local h2 = hrp() if h2 then h2.CFrame = save end end) end
+    -- Kauft einen Slot leer. Server misst die Distanz pro Pedestal, darum TP je Versuch.
+    local function buySlot(entry)
+        local rem = shopRemote("buy")
+        local pos = shopStand(entry.pedestal)
+        if not rem or not pos then return 0 end
+        local bought = 0
+        for _ = 1, 8 do
+            if not (getgenv().CW_Running and getgenv().CW_Shop) then break end
+            if (tonumber(entry.display:GetAttribute("GemStoreStockRemaining")) or 0) <= 0 then break end
+            if not gemBudget(CW_SHOP_PRICE[entry.id] or 0) then break end
+            shopTP(pos)
+            local ok, r = pcall(function()
+                return rem:InvokeServer({ Slot = entry.slot, ItemId = entry.id,
+                    PeriodIndex = entry.display:GetAttribute("GemStoreStockPeriod") })
+            end)
+            if not ok or type(r) ~= "table" then break end
+            if r.Success == true then
+                bought = bought + 1
+                getgenv().CW_ShopBought = (getgenv().CW_ShopBought or 0) + 1
+                task.wait(0.15)
+            elseif tostring(r.Code) == "NotEnoughGems" then
+                shopHalted = true
+                break
+            elseif tostring(r.Code) ~= "TooFar" then
+                break
             end
         end
-        task.wait(didWork and 0.3 or 2)
+        return bought
     end
-end)
+
+    local function refreshStock(gs)
+        local chips = getgenv().CW_ShopPay == "Wood Chips"
+        if not chips and not gemBudget(CW_ROLL_GEMS) then return false end
+        local rem = shopRemote(chips and "chips" or "gems")
+        local btn = gs:FindFirstChild("RerollStockButton")
+        local pos = btn and shopStand(btn)
+        if not rem or not pos then return false end
+        shopTP(pos)
+        local ok, r = pcall(function()
+            return rem:InvokeServer({ PeriodIndex = gs:GetAttribute("GemStoreStockPeriod"),
+                RollIndex = gs:GetAttribute("GemStoreStockRollIndex") })
+        end)
+        if ok and type(r) == "table" and r.Success == true then
+            getgenv().CW_ShopRolls = (getgenv().CW_ShopRolls or 0) + 1
+            task.wait(0.35)
+            return true
+        end
+        return false
+    end
+
+    task.spawn(function()
+        while getgenv().CW_Running and getgenv().CW_Gen == myGen do
+            local didWork = false
+            if getgenv().CW_Shop then
+                local gs = gemStore()
+                if gs then
+                    local h = hrp()
+                    local save = h and h.CFrame
+                    shopHalted = false
+                    for _, e in ipairs(shopSlots(gs)) do
+                        if shopPicked(e.id) and e.left > 0 and not shopHalted then
+                            if buySlot(e) > 0 then didWork = true end
+                        end
+                    end
+                    if getgenv().CW_ShopRoll and not shopHalted then
+                        local waiting = false
+                        for _, e in ipairs(shopSlots(gs)) do
+                            if shopPicked(e.id) and e.left > 0 then waiting = true end
+                        end
+                        if not waiting and refreshStock(gs) then didWork = true end
+                    end
+                    if save then pcall(function() local h2 = hrp() if h2 then h2.CFrame = save end end) end
+                end
+            end
+            task.wait(didWork and 0.3 or 2)
+        end
+    end)
+end
 
 local function doReroll()
     local ty = myTycoon()
@@ -1357,6 +1360,17 @@ local STROKE = Color3.fromRGB(52, 58, 60)
 local TXT = Color3.fromRGB(244, 247, 245)
 local MUT = Color3.fromRGB(186, 196, 192)
 local SELECTED = Color3.fromRGB(34, 53, 44)
+local HOVER = Color3.fromRGB(36, 40, 42)
+-- Legacy Enum.Font spreizt Glyphen, die FontFace-Familien kernen sauber.
+local W = Enum.FontWeight
+local face
+do
+    local ui = "rbxasset://fonts/families/Inter.json"
+    local display = "rbxasset://fonts/families/BuilderSans.json"
+    face = function(weight, useDisplay)
+        return Font.new(useDisplay and display or ui, weight or W.Medium)
+    end
+end
 local connections, painters, responsive = {}, {}, {}
 local collapsed, compact = false, false
 local allCards, navBtns, pages = {}, {}, {}
@@ -1381,10 +1395,14 @@ local function frame(owner, name, size, pos, color)
         BackgroundColor3 = color or CARD, BackgroundTransparency = color and 0 or 1,
         BorderSizePixel = 0 }, owner)
 end
-local function text(owner, name, value, size, pos, fontSize, color, bold)
+-- Versalien mit Haarspatien, für Marken und Abschnittsmarken.
+local function spaced(value)
+    return (string.gsub(string.upper(value), ".", "%0\u{2009}"))
+end
+local function text(owner, name, value, size, pos, fontSize, color, bold, display)
     return make("TextLabel", { Name = name, Text = value, Size = size, Position = pos,
-        BackgroundTransparency = 1, Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham,
-        TextSize = fontSize or 15, TextColor3 = color or TXT,
+        BackgroundTransparency = 1, FontFace = face(bold and W.SemiBold or W.Regular, display),
+        TextSize = fontSize or 15, TextColor3 = color or TXT, LineHeight = 1.08,
         TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd }, owner)
 end
 local function button(owner, name, size, pos, color)
@@ -1397,8 +1415,9 @@ local function connect(signal, fn)
     connections[#connections + 1] = c
     return c
 end
-local function animate(obj, props)
-    Tween:Create(obj, TweenInfo.new(0.14, Enum.EasingStyle.Quad), props):Play()
+local function animate(obj, props, dur, style)
+    Tween:Create(obj, TweenInfo.new(dur or 0.16, style or Enum.EasingStyle.Quint,
+        Enum.EasingDirection.Out), props):Play()
 end
 local function hover(obj, base, over)
     connect(obj.MouseEnter, function() animate(obj, { BackgroundColor3 = over or CTRL }) end)
@@ -1458,8 +1477,11 @@ local dragHandle = button(header, "DragHandle", UDim2.new(1, -104, 1, 0))
 local brand = frame(header, "Brand", UDim2.fromOffset(36, 36), UDim2.fromOffset(20, 14), SELECTED)
 round(brand, 9)
 icon(brand, "Trees", UDim2.fromOffset(7, 6), ACCENT, 23)
-local title = text(header, "Title", "CarveWood", UDim2.fromOffset(180, 26), UDim2.fromOffset(68, 20), 21, TXT, true)
-local version = text(header, "Version", "v9.3", UDim2.fromOffset(56, 26), UDim2.fromOffset(214, 21), 13, MUT)
+local title = text(header, "Title", "CarveWood", UDim2.fromOffset(180, 28), UDim2.fromOffset(68, 19), 22, TXT, true, true)
+local versionChip = frame(header, "VersionChip", UDim2.fromOffset(48, 22), UDim2.fromOffset(218, 23), CARD)
+round(versionChip, 6)
+local version = text(versionChip, "Version", "v9.4", UDim2.new(1, 0, 1, 0), UDim2.new(), 12, MUT, true)
+version.TextXAlignment = Enum.TextXAlignment.Center
 local side = frame(main, "Side", UDim2.new(0, 208, 1, -102), UDim2.fromOffset(0, 64), SIDE)
 local searchWrap = frame(side, "SearchWrap", UDim2.new(1, -28, 0, 42), UDim2.fromOffset(14, 18), CARD)
 round(searchWrap, 6)
@@ -1468,7 +1490,7 @@ icon(searchWrap, "Search", UDim2.fromOffset(12, 12), MUT, 18)
 local search = make("TextBox", { Name = "Search", Size = UDim2.new(1, -40, 1, 0),
     Position = UDim2.fromOffset(38, 0), Text = "", PlaceholderText = "Search features",
     PlaceholderColor3 = MUT, TextColor3 = TXT, BackgroundTransparency = 1,
-    Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
+    FontFace = face(W.Regular), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left,
     ClearTextOnFocus = false }, searchWrap)
 padding(search, 0, 0, 8, 0)
 connect(search.Focused, function() searchBorder.Color = ACCENT end)
@@ -1496,7 +1518,7 @@ local footHint = text(footer, "Hint", UIS.TouchEnabled and "Drag the header to m
 footHint.TextXAlignment = Enum.TextXAlignment.Right
 local content = frame(main, "Content", UDim2.new(1, -208, 1, -102), UDim2.fromOffset(208, 64))
 local pageHead = frame(content, "PageHeader", UDim2.new(1, -48, 0, 96), UDim2.fromOffset(24, 0))
-local pageTitle = text(pageHead, "Title", "Overview", UDim2.new(1, 0, 0, 36), UDim2.fromOffset(0, 26), 28, TXT, true)
+local pageTitle = text(pageHead, "Title", "Overview", UDim2.new(1, 0, 0, 38), UDim2.fromOffset(0, 24), 29, TXT, true, true)
 local pageDesc = text(pageHead, "Description", "", UDim2.new(1, 0, 0, 22), UDim2.fromOffset(0, 66), 15, MUT)
 local PAGE_INFO = {
     {"Home", "Overview", "Your session at a glance."},
@@ -1521,17 +1543,41 @@ local homePage, farmPage, treePage, shopPage, perfPage = pages.Home, pages.Farm,
 local searchPage = makePage("Search")
 local noResults = text(searchPage, "NoResults", "No matching features.", UDim2.new(1, 0, 0, 48), UDim2.new(), 14, MUT)
 noResults.Visible = false
+-- Ein Marker für alle Einträge, er fährt zum aktiven Punkt statt zu springen.
+local navSlider = frame(side, "NavSlider", UDim2.fromOffset(3, 20), UDim2.fromOffset(12, 90), ACCENT)
+round(navSlider, 2)
+navSlider.ZIndex = 3
+navSlider.Visible = false
 local function paintNav()
+    local active = nil
     for name, b in pairs(navBtns) do
         local on = name == currentPage and search.Text == ""
-        b.BackgroundColor3 = on and SELECTED or SIDE
+        animate(b, { BackgroundColor3 = on and SELECTED or SIDE })
         b.Label.TextColor3 = on and TXT or MUT
-        b.Marker.Visible = on
         tintIcon(b.Icon, on and ACCENT or MUT)
+        if on then active = b end
+    end
+    if not active then
+        navSlider.Visible = false
+        return
+    end
+    local y = active.AbsolutePosition.Y - side.AbsolutePosition.Y + 15
+    if navSlider.Visible then
+        animate(navSlider, { Position = UDim2.fromOffset(12, y) })
+    else
+        navSlider.Position = UDim2.fromOffset(12, y)
+        navSlider.Visible = true
     end
 end
 showPage = function()
-    for name, pg in pairs(pages) do pg.Visible = name == currentPage end
+    for name, pg in pairs(pages) do
+        local on = name == currentPage
+        pg.Visible = on
+        if on then
+            pg.Position = UDim2.fromOffset(0, 108)
+            animate(pg, { Position = UDim2.fromOffset(0, 96) }, 0.22)
+        end
+    end
     for _, info in ipairs(PAGE_INFO) do
         if info[1] == currentPage then
             pageTitle.Text = info[2]
@@ -1555,17 +1601,19 @@ local function navItem(info, order)
     round(b, 8)
     icon(b, name, UDim2.fromOffset(13, 15))
     text(b, "Label", name, UDim2.new(1, -56, 1, 0), UDim2.fromOffset(47, 0), 16, MUT, true)
-    local marker = frame(b, "Marker", UDim2.fromOffset(3, 18), UDim2.new(0, 0, 0.5, -9), ACCENT)
-    round(marker, 2)
     navBtns[name] = b
     connect(b.Activated, function() navigate(name) end)
-    connect(b.MouseEnter, function() if name ~= currentPage then b.BackgroundColor3 = CARD end end)
+    connect(b.MouseEnter, function() if name ~= currentPage then animate(b, { BackgroundColor3 = CARD }) end end)
     connect(b.MouseLeave, paintNav)
 end
 
 local function section(page, value, order)
-    local s = text(page, "Section", value, UDim2.new(1, 0, 0, 28), UDim2.new(), 15, MUT, true)
-    s.LayoutOrder = order
+    local row = frame(page, "Section", UDim2.new(1, 0, 0, 30))
+    row.LayoutOrder = order
+    local tick = frame(row, "Tick", UDim2.fromOffset(14, 2), UDim2.fromOffset(0, 15), STROKE)
+    round(tick, 1)
+    text(row, "Label", spaced(value), UDim2.new(1, -26, 1, 0), UDim2.fromOffset(26, 0), 12, MUT, true)
+    return row
 end
 
 local function card(page, pageName, value, desc, order, h)
@@ -1574,8 +1622,9 @@ local function card(page, pageName, value, desc, order, h)
     row.ClipsDescendants = true
     round(row, 10)
     outline(row)
-    local t = text(row, "Heading", value, UDim2.new(1, -158, 0, 28), UDim2.fromOffset(20, 16), 18, TXT, true)
-    local d = text(row, "Description", desc, UDim2.new(1, -158, 0, 42), UDim2.fromOffset(20, 48), 15, MUT)
+    local t = text(row, "Heading", value, UDim2.new(1, -158, 0, 26), UDim2.fromOffset(20, 17), 18, TXT, true)
+    local d = text(row, "Description", desc, UDim2.new(1, -158, 0, 42), UDim2.fromOffset(20, 47), 15, MUT)
+    d.LineHeight = 1.18
     d.TextWrapped = true
     d.TextTruncate = Enum.TextTruncate.None
     d.TextYAlignment = Enum.TextYAlignment.Top
@@ -1591,6 +1640,12 @@ local function card(page, pageName, value, desc, order, h)
     responsive[#responsive + 1] = fit
     allCards[#allCards + 1] = { frame = row, page = pageName, title = value,
         text = string.lower(pageName .. " " .. value .. " " .. desc) }
+    connect(row.MouseEnter, function()
+        if not row:FindFirstChild("Body") then animate(row, { BackgroundColor3 = HOVER }, 0.18) end
+    end)
+    connect(row.MouseLeave, function()
+        if not row:FindFirstChild("Body") then animate(row, { BackgroundColor3 = CARD }, 0.18) end
+    end)
     return row
 end
 
@@ -1611,8 +1666,9 @@ local function toggle(row, get, set, rightInset)
         b:SetAttribute("Value", on)
         state.Text = on and "On" or "Off"
         state.TextColor3 = on and ACCENT or MUT
-        animate(track, { BackgroundColor3 = on and ACCENT or CTRL })
-        animate(knob, { Position = UDim2.fromOffset(on and 23 or 3, 3), BackgroundColor3 = on and BG or MUT })
+        animate(track, { BackgroundColor3 = on and ACCENT or CTRL }, 0.18)
+        animate(knob, { Position = UDim2.fromOffset(on and 23 or 3, 3),
+            BackgroundColor3 = on and BG or MUT }, 0.24)
     end
     local function fit()
         local stacked = row.AbsoluteSize.X < 440 and row.AbsoluteSize.Y >= 120
@@ -1664,29 +1720,37 @@ local function panel(page, pageName, value, desc, order, h)
     local chevron = icon(chevronBtn, "Chevron", UDim2.fromOffset(8, 15), MUT, 20)
     local hit = button(head, "Hit", UDim2.new(1, -184, 1, 0))
     hit.ZIndex = 3
-    local open = true
-    local function fit()
+    local open, ready = true, false
+    local function fit(instant)
         local hh = row:GetAttribute("HeaderHeight") or h or 96
         head.Size = UDim2.new(1, 0, 0, hh)
         body.Position = UDim2.fromOffset(0, hh)
-        row.Size = UDim2.new(1, 0, 0, hh + (open and body.AbsoluteSize.Y or 0))
+        local target = UDim2.new(1, 0, 0, hh + (open and body.AbsoluteSize.Y or 0))
+        if instant then row.Size = target else animate(row, { Size = target }, 0.22) end
         local narrow = row.AbsoluteSize.X < 480
         chevronBtn.Position = narrow and UDim2.new(1, -20, 1, -34) or UDim2.new(1, -20, 0.5, 0)
     end
-    local function setOpen(v)
+    local function setOpen(v, instant)
         open = v
-        body.Visible = v
         row:SetAttribute("Expanded", v)
-        chevron.Rotation = v and 180 or 0
+        if v then body.Visible = true end
+        if instant then chevron.Rotation = v and 180 or 0
+        else animate(chevron, { Rotation = v and 180 or 0 }, 0.22) end
         tintIcon(chevron, v and ACCENT or MUT)
         if not v then closeDD2() end
-        fit()
+        fit(instant)
+        if not v then
+            task.delay(0.24, function() if not open then body.Visible = false end end)
+        end
     end
-    connect(body:GetPropertyChangedSignal("AbsoluteSize"), fit)
-    connect(row:GetAttributeChangedSignal("HeaderHeight"), fit)
+    connect(body:GetPropertyChangedSignal("AbsoluteSize"), function() fit(not ready) end)
+    connect(row:GetAttributeChangedSignal("HeaderHeight"), function() fit(not ready) end)
     connect(chevronBtn.Activated, function() setOpen(not open) end)
     connect(hit.Activated, function() setOpen(not open) end)
-    setOpen(true)
+    connect(hit.MouseEnter, function() animate(row, { BackgroundColor3 = HOVER }, 0.18) end)
+    connect(hit.MouseLeave, function() animate(row, { BackgroundColor3 = CARD }, 0.18) end)
+    setOpen(true, true)
+    task.defer(function() ready = true end)
     return { frame = row, body = body, head = head, setOpen = setOpen }
 end
 
@@ -1715,6 +1779,22 @@ local function subToggle(body, pageName, value, rootCard, order, get, set)
     return result
 end
 
+-- Listen fahren auf ihre Inhaltshöhe aus, statt als Block zu erscheinen.
+local function listOpener(list, height)
+    return function(vis)
+        if vis then
+            list.Size = UDim2.new(1, 0, 0, 0)
+            list.Visible = true
+            animate(list, { Size = UDim2.new(1, 0, 0, height) }, 0.2)
+        else
+            animate(list, { Size = UDim2.new(1, 0, 0, 0) }, 0.14)
+            task.delay(0.16, function()
+                if list.Size.Y.Offset <= 2 then list.Visible = false end
+            end)
+        end
+    end
+end
+
 -- Dropdown: Zeile mit Auswahlfeld, Liste klappt darunter auf.
 local function subDropdown(body, pageName, value, rootCard, order, options, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
@@ -1725,9 +1805,11 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
     local selected = text(b, "Value", "", UDim2.new(1, -54, 0, 22), UDim2.fromOffset(14, 5), 15, TXT, true)
     local rarity = text(b, "Rarity", "", UDim2.new(1, -54, 0, 16), UDim2.fromOffset(14, 27), 12, MUT)
     local arrow = icon(b, "Chevron", UDim2.new(1, -32, 0.5, -9), MUT, 18)
-    local list = frame(body, "Options_" .. order, UDim2.new(1, 0, 0, 300), nil, SIDE)
+    local listHeight = math.min(300, 72 + #options * 56)
+    local list = frame(body, "Options_" .. order, UDim2.new(1, 0, 0, listHeight), nil, SIDE)
     list.LayoutOrder = order + 1
     list.Visible = false
+    local setList = listOpener(list, listHeight)
     list.ClipsDescendants = true
     round(list, 8)
     outline(list)
@@ -1738,7 +1820,7 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
     local filter = make("TextBox", { Name = "Search", Size = UDim2.new(1, -44, 1, 0),
         Position = UDim2.fromOffset(38, 0), Text = "", PlaceholderText = "Search a tree or rarity",
         PlaceholderColor3 = MUT, TextColor3 = TXT, BackgroundTransparency = 1,
-        ClearTextOnFocus = false, Font = Enum.Font.Gotham, TextSize = 14,
+        ClearTextOnFocus = false, FontFace = face(W.Regular), TextSize = 15,
         TextXAlignment = Enum.TextXAlignment.Left }, filterWrap)
     local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(10, 62),
         Size = UDim2.new(1, -20, 1, -72), BackgroundTransparency = 1, BorderSizePixel = 0,
@@ -1775,8 +1857,8 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
         local mark = text(ob, "SelectionMark", "Selected", UDim2.fromOffset(72, 54), UDim2.new(1, -84, 0, 0), 12, ACCENT)
         mark.TextXAlignment = Enum.TextXAlignment.Right
         optionButtons[i] = ob
-        connect(ob.Activated, function() set(opt.value) paint() filter:ReleaseFocus() list.Visible = false end)
-        connect(ob.MouseEnter, function() if get() ~= opt.value then ob.BackgroundColor3 = CARD end end)
+        connect(ob.Activated, function() set(opt.value) paint() filter:ReleaseFocus() setList(false) end)
+        connect(ob.MouseEnter, function() if get() ~= opt.value then animate(ob, { BackgroundColor3 = HOVER }, 0.12) end end)
         connect(ob.MouseLeave, paint)
     end
     connect(filter:GetPropertyChangedSignal("Text"), function()
@@ -1798,7 +1880,7 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
     connect(b.Activated, function()
         local was = list.Visible
         closeDD2()
-        list.Visible = not was
+        setList(not was)
         if not was then
             filter.Text = ""
             paint()
@@ -1837,9 +1919,11 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
     local selected = text(b, "Value", "", UDim2.new(1, -54, 0, 22), UDim2.fromOffset(14, 5), 15, TXT, true)
     local summary = text(b, "Summary", "", UDim2.new(1, -54, 0, 16), UDim2.fromOffset(14, 27), 12, MUT)
     local arrow = icon(b, "Chevron", UDim2.new(1, -32, 0.5, -9), MUT, 18)
-    local list = frame(body, "Picks_" .. order, UDim2.new(1, 0, 0, 300), nil, SIDE)
+    local listHeight = math.min(300, 20 + #options * 56)
+    local list = frame(body, "Picks_" .. order, UDim2.new(1, 0, 0, listHeight), nil, SIDE)
     list.LayoutOrder = order + 1
     list.Visible = false
+    local setList = listOpener(list, listHeight)
     list.ClipsDescendants = true
     round(list, 8)
     outline(list)
@@ -1887,7 +1971,7 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
         text(ob, "Note", opt.note or "", UDim2.new(1, -104, 0, 18), UDim2.fromOffset(44, 29), 12, MUT)
         optionButtons[i] = ob
         connect(ob.Activated, function() setOn(opt.value, not isOn(opt.value)) paint() end)
-        connect(ob.MouseEnter, function() if not isOn(opt.value) then ob.BackgroundColor3 = CARD end end)
+        connect(ob.MouseEnter, function() if not isOn(opt.value) then animate(ob, { BackgroundColor3 = HOVER }, 0.12) end end)
         connect(ob.MouseLeave, paint)
     end
     connect(list:GetPropertyChangedSignal("Visible"), function()
@@ -1897,7 +1981,7 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
     connect(b.Activated, function()
         local was = list.Visible
         closeDD2()
-        list.Visible = not was
+        setList(not was)
         if not was then
             paint()
             task.defer(function()
@@ -1967,7 +2051,7 @@ local function subNumber(body, pageName, value, rootCard, order, get, set)
         Position = UDim2.new(1, -4, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5),
         BackgroundColor3 = SIDE, BorderSizePixel = 0, Text = tostring(get() or 0),
         PlaceholderText = "0", PlaceholderColor3 = MUT, TextColor3 = TXT,
-        Font = Enum.Font.GothamBold, TextSize = 15, ClearTextOnFocus = false,
+        FontFace = face(W.SemiBold), TextSize = 15, ClearTextOnFocus = false,
         TextXAlignment = Enum.TextXAlignment.Left }, r)
     round(box, 8)
     local border = outline(box)
@@ -2000,8 +2084,8 @@ do
         local tile = frame(statRow, label, UDim2.new(1 / 3, -8, 1, 0), UDim2.new((order - 1) / 3, (order - 1) * 4, 0, 0), CARD)
         round(tile, 10)
         outline(tile)
-        text(tile, "Label", label, UDim2.new(1, -36, 0, 22), UDim2.fromOffset(20, 18), 15, MUT, true)
-        text(tile, valName, initial, UDim2.new(1, -40, 0, 48), UDim2.fromOffset(20, 46), order == 2 and 30 or 34, order == 1 and ACCENT or TXT, true)
+        text(tile, "Label", spaced(label), UDim2.new(1, -36, 0, 20), UDim2.fromOffset(20, 18), 12, MUT, true)
+        text(tile, valName, initial, UDim2.new(1, -40, 0, 50), UDim2.fromOffset(20, 44), order == 2 and 32 or 36, order == 1 and ACCENT or TXT, true, true)
         text(tile, subName, subText, UDim2.new(1, -40, 0, 26), UDim2.fromOffset(20, 106), 15, MUT)
         tiles[order] = tile
     end
@@ -2394,6 +2478,11 @@ if type(STATE) == "table" and STATE.onCleanup then
 end
 fitViewport()
 showPage()
+do
+    local target = main.Size
+    main.Size = UDim2.fromOffset(target.X.Offset - 26, target.Y.Offset - 18)
+    animate(main, { Size = target }, 0.3)
+end
 local STATUS_NAMES = {
     {"CW_Farm", "Seed farm"}, {"CW_Trees", "Trees"}, {"CW_Frenzy", "Frenzy"},
     {"CW_CollectCan", "Cans"}, {"CW_CollectFert", "Fertilizer"}, {"CW_Fert", "Fertilize"},
