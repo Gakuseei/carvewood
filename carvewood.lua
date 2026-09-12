@@ -28,6 +28,7 @@ getgenv().CW_ShopRoll = getgenv().CW_ShopRoll or false
 getgenv().CW_ShopPay = getgenv().CW_ShopPay or "Gems"
 getgenv().CW_ShopFloor = getgenv().CW_ShopFloor or 0
 getgenv().CW_ShopPick = getgenv().CW_ShopPick or {}
+getgenv().CW_ShopStay = getgenv().CW_ShopStay or false
 getgenv().CW_ShopBought = 0
 getgenv().CW_ShopRolls = 0
 
@@ -824,7 +825,7 @@ do
         local h = hrp()
         if not h then return false end
         pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 3, 5), pos) end)
-        task.wait(0.35)
+        task.wait(0.25)
         return true
     end
 
@@ -834,11 +835,15 @@ do
         local pos = shopStand(entry.pedestal)
         if not rem or not pos then return 0 end
         local bought = 0
-        for _ = 1, 8 do
+        local placed = false
+        for _ = 1, 10 do
             if not (getgenv().CW_Running and getgenv().CW_Shop) then break end
             if (tonumber(entry.display:GetAttribute("GemStoreStockRemaining")) or 0) <= 0 then break end
             if not gemBudget(CW_SHOP_PRICE[entry.id] or 0) then break end
-            shopTP(pos)
+            if not placed then
+                shopTP(pos)
+                placed = true
+            end
             local ok, r = pcall(function()
                 return rem:InvokeServer({ Slot = entry.slot, ItemId = entry.id,
                     PeriodIndex = entry.display:GetAttribute("GemStoreStockPeriod") })
@@ -847,11 +852,12 @@ do
             if r.Success == true then
                 bought = bought + 1
                 getgenv().CW_ShopBought = (getgenv().CW_ShopBought or 0) + 1
-                task.wait(0.15)
             elseif tostring(r.Code) == "NotEnoughGems" then
                 shopHalted = true
                 break
-            elseif tostring(r.Code) ~= "TooFar" then
+            elseif tostring(r.Code) == "TooFar" then
+                placed = false
+            else
                 break
             end
         end
@@ -881,15 +887,17 @@ do
     task.spawn(function()
         while getgenv().CW_Running and getgenv().CW_Gen == myGen do
             local didWork = false
-            if getgenv().CW_Shop then
+            if getgenv().CW_Shop or getgenv().CW_ShopRoll then
                 local gs = gemStore()
                 if gs then
                     local h = hrp()
                     local save = h and h.CFrame
                     shopHalted = false
-                    for _, e in ipairs(shopSlots(gs)) do
-                        if shopPicked(e.id) and e.left > 0 and not shopHalted then
-                            if buySlot(e) > 0 then didWork = true end
+                    if getgenv().CW_Shop then
+                        for _, e in ipairs(shopSlots(gs)) do
+                            if shopPicked(e.id) and e.left > 0 and not shopHalted then
+                                if buySlot(e) > 0 then didWork = true end
+                            end
                         end
                     end
                     if getgenv().CW_ShopRoll and not shopHalted then
@@ -899,10 +907,12 @@ do
                         end
                         if not waiting and refreshStock(gs) then didWork = true end
                     end
-                    if save then pcall(function() local h2 = hrp() if h2 then h2.CFrame = save end end) end
+                    if save and not getgenv().CW_ShopStay then
+                        pcall(function() local h2 = hrp() if h2 then h2.CFrame = save end end)
+                    end
                 end
             end
-            task.wait(didWork and 0.3 or 2)
+            task.wait(didWork and 0.1 or 1.5)
         end
     end)
 end
@@ -2266,6 +2276,9 @@ do
     subNumber(ec.body, "Shop", "Keep at least this many gems", ec, 20,
         function() return getgenv().CW_ShopFloor end,
         function(v) getgenv().CW_ShopFloor = v end)
+    subToggle(ec.body, "Shop", "Stay at the store", ec, 30,
+        function() return getgenv().CW_ShopStay end,
+        function(v) getgenv().CW_ShopStay = v end)
 end
 local shopHelp = text(shopPage, "ShopHelp", "Buying and rolling teleport you to the store and back. Once gems hit the limit every gem purchase stops, wood chip rolls keep running.",
     UDim2.new(1, 0, 0, 44), UDim2.new(), 14, MUT)
