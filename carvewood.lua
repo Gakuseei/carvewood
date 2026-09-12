@@ -1505,19 +1505,9 @@ local navHolder = make("ScrollingFrame", { Name = "Navigation", Position = UDim2
     Size = UDim2.new(1, -24, 1, -144), BackgroundTransparency = 1, BorderSizePixel = 0,
     ScrollBarThickness = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y }, side)
 stack(navHolder, 4)
-local profile = frame(side, "Profile", UDim2.new(1, -28, 0, 56), UDim2.new(0, 14, 1, -66))
-local avatar = frame(profile, "Avatar", UDim2.fromOffset(40, 40), UDim2.fromOffset(0, 10), CTRL)
-round(avatar, 20)
-local initials = text(avatar, "Initial", string.upper(string.sub(LP.DisplayName, 1, 1)), UDim2.fromScale(1, 1), UDim2.new(), 18, ACCENT, true)
-initials.TextXAlignment = Enum.TextXAlignment.Center
-text(profile, "Name", LP.DisplayName, UDim2.new(1, -52, 0, 24), UDim2.fromOffset(52, 12), 17, TXT, true)
-text(profile, "Username", "@" .. LP.Name, UDim2.new(1, -52, 0, 20), UDim2.fromOffset(52, 36), 14, MUT)
 local footer = frame(main, "Footer", UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 1, -38), SIDE)
-local footDot = frame(footer, "StatusDot", UDim2.fromOffset(7, 7), UDim2.fromOffset(18, 15), ACCENT)
-round(footDot, 4)
-local footStatus = text(footer, "Status", "All automations off", UDim2.new(0.66, -36, 1, 0), UDim2.fromOffset(33, 0), 15, MUT)
-local footHint = text(footer, "Hint", UIS.TouchEnabled and "Drag the header to move" or "Right Shift to minimize", UDim2.new(0.34, -24, 1, 0), UDim2.fromScale(0.66, 0), 14, MUT)
-footHint.TextXAlignment = Enum.TextXAlignment.Right
+local footHint = text(footer, "Hint", UIS.TouchEnabled and "Drag the header to move" or "Right Shift to minimize",
+    UDim2.new(1, -40, 1, 0), UDim2.fromOffset(20, 0), 14, MUT)
 -- Eingeklappt: eine Pille mit Markenzeichen, Laufstatus und Aufklapp-Pfeil.
 local mini, paintMini
 do
@@ -2344,8 +2334,9 @@ hover(btnX, SIDE, Color3.fromRGB(57, 35, 37))
 local resizeGrips = {}
 for _, corner in ipairs({{"TopLeft", -1, -1}, {"TopRight", 1, -1}, {"BottomLeft", -1, 1}, {"BottomRight", 1, 1}}) do
     local dx, dy = corner[2], corner[3]
-    local grip = button(main, "Resize" .. corner[1], UDim2.fromOffset(30, 30),
-        UDim2.new(dx > 0 and 1 or 0, dx > 0 and -30 or 0, dy > 0 and 1 or 0, dy > 0 and -30 or 0))
+    local grip = button(main, "Resize" .. corner[1], UDim2.fromOffset(UIS.TouchEnabled and 40 or 30, UIS.TouchEnabled and 40 or 30),
+        UDim2.new(dx > 0 and 1 or 0, dx > 0 and (UIS.TouchEnabled and -40 or -30) or 0,
+            dy > 0 and 1 or 0, dy > 0 and (UIS.TouchEnabled and -40 or -30) or 0))
     grip.ZIndex = 12
     grip:SetAttribute("DirX", dx)
     grip:SetAttribute("DirY", dy)
@@ -2414,9 +2405,8 @@ local function layout()
     content.Position = UDim2.fromOffset(sw, 64)
     content.Size = UDim2.new(1, -sw, 1, -102)
     navHolder.Position = UDim2.fromOffset(compact and 10 or 12, compact and 68 or 78)
-    navHolder.Size = UDim2.new(1, compact and -20 or -24, 1, compact and -82 or -148)
+    navHolder.Size = UDim2.new(1, compact and -20 or -24, 1, compact and -82 or -96)
     for _, b in pairs(navBtns) do b.Label.Visible = not compact end
-    profile.Visible = not compact
     smallSearch.Visible = compact
     searchWrap.Parent = compact and header or side
     searchWrap.Position = compact and UDim2.fromOffset(62, 12) or UDim2.fromOffset(14, 18)
@@ -2426,7 +2416,6 @@ local function layout()
     title.Visible = not (compact and mobileSearchOpen)
     version.Visible = not compact
     footHint.Visible = not compact
-    footStatus.Size = UDim2.new(compact and 1 or 0.66, -40, 1, 0)
     dialog.Size = UDim2.fromOffset(math.min(400, w - 32), 220)
     for _, grip in ipairs(resizeGrips) do grip.Visible = not collapsed end
     local inset = compact and 16 or 24
@@ -2578,15 +2567,12 @@ task.spawn(function()
         for _, entry in ipairs(STATUS_NAMES) do
             if getgenv()[entry[1]] then active[#active + 1] = entry[2] end
         end
-        local shown = #active == 0 and "All automations off"
-            or table.concat(active, ", ", 1, math.min(#active, 3))
-        if #active > 3 then shown = shown .. " +" .. (#active - 3) end
         if collapsed then
+            local shown = table.concat(active, ", ", 1, math.min(#active, 3))
+            if #active > 3 then shown = shown .. " +" .. (#active - 3) end
             paintMini(#active, #active == 0 and "Idle" or shown)
         else
             for _, paint in ipairs(painters) do paint() end
-            footDot.BackgroundColor3 = #active == 0 and MUT or ACCENT
-            footStatus.Text = shown
         end
         task.wait(0.5)
     end
