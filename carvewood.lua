@@ -2340,11 +2340,30 @@ local btnX = button(header, "Close", UDim2.fromOffset(44, 44), UDim2.new(1, -50,
 round(btnX, 6)
 icon(btnX, "Close", UDim2.fromOffset(12, 12), MUT)
 hover(btnX, SIDE, Color3.fromRGB(57, 35, 37))
-local resizeHandle = button(main, "Resize", UDim2.fromOffset(28, 28), UDim2.new(1, -28, 1, -28))
-resizeHandle.ZIndex = 5
-for i = 0, 2 do
-    local line = frame(resizeHandle, "Grip", UDim2.fromOffset(3 + i * 4, 1), UDim2.fromOffset(19 - i * 2, 19 - i * 2), MUT)
-    line.Rotation = -45
+-- Vier Ecken ziehen die Größe, jede merkt sich ihre Richtung als Attribut.
+local resizeGrips = {}
+for _, corner in ipairs({{"TopLeft", -1, -1}, {"TopRight", 1, -1}, {"BottomLeft", -1, 1}, {"BottomRight", 1, 1}}) do
+    local dx, dy = corner[2], corner[3]
+    local grip = button(main, "Resize" .. corner[1], UDim2.fromOffset(30, 30),
+        UDim2.new(dx > 0 and 1 or 0, dx > 0 and -30 or 0, dy > 0 and 1 or 0, dy > 0 and -30 or 0))
+    grip.ZIndex = 12
+    grip:SetAttribute("DirX", dx)
+    grip:SetAttribute("DirY", dy)
+    local arm = frame(grip, "ArmX", UDim2.fromOffset(11, 2), UDim2.fromOffset(dx > 0 and 11 or 8, dy > 0 and 20 or 8), MUT)
+    local armY = frame(grip, "ArmY", UDim2.fromOffset(2, 11), UDim2.fromOffset(dx > 0 and 20 or 8, dy > 0 and 11 or 8), MUT)
+    arm.BackgroundTransparency = 0.55
+    armY.BackgroundTransparency = 0.55
+    round(arm, 1)
+    round(armY, 1)
+    connect(grip.MouseEnter, function()
+        animate(arm, { BackgroundColor3 = ACCENT, BackgroundTransparency = 0 }, 0.12)
+        animate(armY, { BackgroundColor3 = ACCENT, BackgroundTransparency = 0 }, 0.12)
+    end)
+    connect(grip.MouseLeave, function()
+        animate(arm, { BackgroundColor3 = MUT, BackgroundTransparency = 0.55 }, 0.12)
+        animate(armY, { BackgroundColor3 = MUT, BackgroundTransparency = 0.55 }, 0.12)
+    end)
+    resizeGrips[#resizeGrips + 1] = grip
 end
 local modal = button(main, "ConfirmClose", UDim2.fromScale(1, 1), nil, BG)
 modal.BackgroundTransparency = 0.12
@@ -2409,7 +2428,7 @@ local function layout()
     footHint.Visible = not compact
     footStatus.Size = UDim2.new(compact and 1 or 0.66, -40, 1, 0)
     dialog.Size = UDim2.fromOffset(math.min(400, w - 32), 220)
-    resizeHandle.Visible = not UIS.TouchEnabled
+    for _, grip in ipairs(resizeGrips) do grip.Visible = not collapsed end
     local inset = compact and 16 or 24
     pageHead.Position = UDim2.fromOffset(inset, 0)
     pageHead.Size = UDim2.new(1, -inset * 2, 0, 96)
@@ -2447,7 +2466,7 @@ local function setCollapsed(value)
     content.Visible = not value
     footer.Visible = not value
     version.Visible = not value
-    resizeHandle.Visible = not value and not UIS.TouchEnabled
+    for _, grip in ipairs(resizeGrips) do grip.Visible = not value end
     searchWrap.Visible = not value and not compact
     title.Visible = true
     mobileSearchOpen = false
@@ -2485,11 +2504,12 @@ end)
 connect(search.FocusLost, function()
     if compact and search.Text == "" then mobileSearchOpen = false layout() end
 end)
-local pointer, gesture, startPointer, startPosition, startSize
-local function beginGesture(input, mode)
+local pointer, gesture, startPointer, startPosition, startSize, gripDir
+local function beginGesture(input, mode, grip)
     if modal.Visible then return end
     if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
     pointer, gesture = input, mode
+    gripDir = grip and Vector2.new(grip:GetAttribute("DirX"), grip:GetAttribute("DirY")) or Vector2.one
     startPointer = Vector2.new(input.Position.X, input.Position.Y)
     startPosition = Vector2.new(main.Position.X.Offset, main.Position.Y.Offset)
     startSize = main.AbsoluteSize
@@ -2498,7 +2518,9 @@ end
 connect(dragHandle.InputBegan, function(input) beginGesture(input, "drag") end)
 connect(mini.InputBegan, function(input) beginGesture(input, "drag") end)
 connect(mini.Expand.Activated, function() setCollapsed(false) end)
-connect(resizeHandle.InputBegan, function(input) beginGesture(input, "resize") end)
+for _, grip in ipairs(resizeGrips) do
+    connect(grip.InputBegan, function(input) beginGesture(input, "resize", grip) end)
+end
 connect(UIS.InputChanged, function(input)
     if not pointer then return end
     if input ~= pointer and input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
@@ -2507,11 +2529,12 @@ connect(UIS.InputChanged, function(input)
         main.Position = UDim2.fromOffset(startPosition.X + delta.X, startPosition.Y + delta.Y)
     else
         local vp = availableSize()
-        local w = math.clamp(startSize.X + delta.X, math.min(358, vp.X - 24), vp.X - 24)
-        local h = math.clamp(startSize.Y + delta.Y, math.min(340, vp.Y - 24), vp.Y - 24)
+        local w = math.clamp(startSize.X + delta.X * gripDir.X, math.min(358, vp.X - 24), vp.X - 24)
+        local h = math.clamp(startSize.Y + delta.Y * gripDir.Y, math.min(340, vp.Y - 24), vp.Y - 24)
         fullSize = Vector2.new(w, h)
         main.Size = UDim2.fromOffset(w, h)
-        main.Position = UDim2.fromOffset(startPosition.X + (w - startSize.X) / 2, startPosition.Y + (h - startSize.Y) / 2)
+        main.Position = UDim2.fromOffset(startPosition.X + (w - startSize.X) / 2 * gripDir.X,
+            startPosition.Y + (h - startSize.Y) / 2 * gripDir.Y)
     end
     clampPosition()
 end)
