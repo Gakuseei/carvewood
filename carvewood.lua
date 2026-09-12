@@ -1,4 +1,4 @@
---[[ CarveWood v9.2 | Delta mobile | no login, no key ]]
+--[[ CarveWood v9.3 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -22,6 +22,13 @@ getgenv().CW_Fert = getgenv().CW_Fert or false
 getgenv().CW_Prio1 = getgenv().CW_Prio1 or "Hyperwave"
 getgenv().CW_Prio2 = getgenv().CW_Prio2 or "Voidstar"
 getgenv().CW_Prio3 = getgenv().CW_Prio3 or "Birch"
+getgenv().CW_Shop = getgenv().CW_Shop or false
+getgenv().CW_ShopRoll = getgenv().CW_ShopRoll or false
+getgenv().CW_ShopPay = getgenv().CW_ShopPay or "Gems"
+getgenv().CW_ShopFloor = getgenv().CW_ShopFloor or 0
+getgenv().CW_ShopPick = getgenv().CW_ShopPick or {}
+getgenv().CW_ShopBought = 0
+getgenv().CW_ShopRolls = 0
 
 local cachedTy = nil
 local function myTycoon()
@@ -733,6 +740,168 @@ task.spawn(function()
     end
 end)
 
+local CW_SHOP_ITEMS = {
+    {id = "DiamondFertilizer", name = "Diamond Fertilizer", price = 80, rarity = "Mythical"},
+    {id = "GoldenFertilizer", name = "Golden Fertilizer", price = 20, rarity = "Legendary"},
+    {id = "WateringCan64x", name = "64x Watering Can", price = 30, rarity = "Mythical"},
+    {id = "WateringCan16x", name = "16x Watering Can", price = 10, rarity = "Legendary"},
+    {id = "ChargedEnergyCapsule", name = "Charged Energy Capsule", price = 150, rarity = "Rare"},
+    {id = "Recall", name = "Seed Recall", price = 5, rarity = "Common"},
+}
+local CW_SHOP_PRICE = {}
+for _, it in ipairs(CW_SHOP_ITEMS) do CW_SHOP_PRICE[it.id] = it.price end
+local CW_ROLL_GEMS = 100
+local CW_SHOP_ROUTES = {
+    buy = "PurchaseGemStoreStock",
+    gems = "RefreshGemStoreStockWithGems",
+    chips = "RefreshGemStoreStockWithWoodChips",
+}
+local CW_ShopUUID = {}
+local function shopRemote(key)
+    if not CW_ShopUUID[key] then CW_ShopUUID[key] = resolveRoute(CW_SHOP_ROUTES[key]) end
+    if not CW_ShopUUID[key] then return nil end
+    local rem = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
+    rem = rem and rem:FindFirstChild(CW_ShopUUID[key])
+    if not rem then CW_ShopUUID[key] = nil end
+    return rem
+end
+
+local function gemCount()
+    local ls = LP:FindFirstChild("leaderstats")
+    local d = ls and ls:FindFirstChild("Diamonds")
+    return (d and tonumber(d.Value)) or 0
+end
+
+local function gemStore()
+    local ty = myTycoon()
+    local gs = ty and ty:FindFirstChild("GemStore", true)
+    if gs and gs:FindFirstChild("Pedestals") then return gs end
+    return nil
+end
+
+local function shopSlots(gs)
+    local out = {}
+    for _, ped in ipairs(gs.Pedestals:GetChildren()) do
+        local d = ped:FindFirstChild("DailyStockDisplay")
+        if d then
+            out[#out + 1] = { pedestal = ped, display = d,
+                slot = d:GetAttribute("GemStoreStockSlot"),
+                id = tostring(d:GetAttribute("GemStoreStockItemId")),
+                left = tonumber(d:GetAttribute("GemStoreStockRemaining")) or 0 }
+        end
+    end
+    return out
+end
+
+local function shopPicked(id)
+    local pick = getgenv().CW_ShopPick
+    return type(pick) == "table" and pick[id] == true
+end
+
+local shopHalted = false
+local function gemBudget(cost)
+    if gemCount() - cost >= (tonumber(getgenv().CW_ShopFloor) or 0) then return true end
+    shopHalted = true
+    return false
+end
+
+-- Model-Pivots im Store zeigen teils ins Nirgendwo, darum immer ein echtes Part.
+local function shopStand(inst)
+    local pos
+    pcall(function()
+        local part = inst:IsA("BasePart") and inst or inst:FindFirstChildWhichIsA("BasePart", true)
+        pos = part and part.Position
+    end)
+    if typeof(pos) ~= "Vector3" then return nil end
+    return pos
+end
+
+local function shopTP(pos)
+    local h = hrp()
+    if not h then return false end
+    pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 3, 5), pos) end)
+    task.wait(0.35)
+    return true
+end
+
+-- Kauft einen Slot leer. Server misst die Distanz pro Pedestal, darum TP je Versuch.
+local function buySlot(entry)
+    local rem = shopRemote("buy")
+    local pos = shopStand(entry.pedestal)
+    if not rem or not pos then return 0 end
+    local bought = 0
+    for _ = 1, 8 do
+        if not (getgenv().CW_Running and getgenv().CW_Shop) then break end
+        if (tonumber(entry.display:GetAttribute("GemStoreStockRemaining")) or 0) <= 0 then break end
+        if not gemBudget(CW_SHOP_PRICE[entry.id] or 0) then break end
+        shopTP(pos)
+        local ok, r = pcall(function()
+            return rem:InvokeServer({ Slot = entry.slot, ItemId = entry.id,
+                PeriodIndex = entry.display:GetAttribute("GemStoreStockPeriod") })
+        end)
+        if not ok or type(r) ~= "table" then break end
+        if r.Success == true then
+            bought = bought + 1
+            getgenv().CW_ShopBought = (getgenv().CW_ShopBought or 0) + 1
+            task.wait(0.15)
+        elseif tostring(r.Code) == "NotEnoughGems" then
+            shopHalted = true
+            break
+        elseif tostring(r.Code) ~= "TooFar" then
+            break
+        end
+    end
+    return bought
+end
+
+local function refreshStock(gs)
+    local chips = getgenv().CW_ShopPay == "Wood Chips"
+    if not chips and not gemBudget(CW_ROLL_GEMS) then return false end
+    local rem = shopRemote(chips and "chips" or "gems")
+    local btn = gs:FindFirstChild("RerollStockButton")
+    local pos = btn and shopStand(btn)
+    if not rem or not pos then return false end
+    shopTP(pos)
+    local ok, r = pcall(function()
+        return rem:InvokeServer({ PeriodIndex = gs:GetAttribute("GemStoreStockPeriod"),
+            RollIndex = gs:GetAttribute("GemStoreStockRollIndex") })
+    end)
+    if ok and type(r) == "table" and r.Success == true then
+        getgenv().CW_ShopRolls = (getgenv().CW_ShopRolls or 0) + 1
+        task.wait(0.35)
+        return true
+    end
+    return false
+end
+
+task.spawn(function()
+    while getgenv().CW_Running and getgenv().CW_Gen == myGen do
+        local didWork = false
+        if getgenv().CW_Shop then
+            local gs = gemStore()
+            if gs then
+                local h = hrp()
+                local save = h and h.CFrame
+                shopHalted = false
+                for _, e in ipairs(shopSlots(gs)) do
+                    if shopPicked(e.id) and e.left > 0 and not shopHalted then
+                        if buySlot(e) > 0 then didWork = true end
+                    end
+                end
+                if getgenv().CW_ShopRoll and not shopHalted then
+                    local waiting = false
+                    for _, e in ipairs(shopSlots(gs)) do
+                        if shopPicked(e.id) and e.left > 0 then waiting = true end
+                    end
+                    if not waiting and refreshStock(gs) then didWork = true end
+                end
+                if save then pcall(function() local h2 = hrp() if h2 then h2.CFrame = save end end) end
+            end
+        end
+        task.wait(didWork and 0.3 or 2)
+    end
+end)
+
 local function doReroll()
     local ty = myTycoon()
     if not ty then return end
@@ -1289,7 +1458,7 @@ local brand = frame(header, "Brand", UDim2.fromOffset(36, 36), UDim2.fromOffset(
 round(brand, 9)
 icon(brand, "Trees", UDim2.fromOffset(7, 6), ACCENT, 23)
 local title = text(header, "Title", "CarveWood", UDim2.fromOffset(180, 26), UDim2.fromOffset(68, 20), 21, TXT, true)
-local version = text(header, "Version", "v9.2", UDim2.fromOffset(56, 26), UDim2.fromOffset(214, 21), 13, MUT)
+local version = text(header, "Version", "v9.3", UDim2.fromOffset(56, 26), UDim2.fromOffset(214, 21), 13, MUT)
 local side = frame(main, "Side", UDim2.new(0, 208, 1, -102), UDim2.fromOffset(0, 64), SIDE)
 local searchWrap = frame(side, "SearchWrap", UDim2.new(1, -28, 0, 42), UDim2.fromOffset(14, 18), CARD)
 round(searchWrap, 6)
@@ -1333,7 +1502,7 @@ local PAGE_INFO = {
     {"Farm", "Seed farming", "Reroll seeds and collect what is ready."},
     {"Trees", "Trees", "Planting priorities and tree care."},
     {"Sell Zone", "Sell Zone", ""},
-    {"Shop", "Shop", ""},
+    {"Shop", "Shop", "Buy and reroll stock at Moon's gem store."},
     {"Performance", "Performance", "Keep the game focused on what matters."},
 }
 local function makePage(name)
@@ -1347,7 +1516,7 @@ local function makePage(name)
     return sc
 end
 for _, info in ipairs(PAGE_INFO) do makePage(info[1]) end
-local homePage, farmPage, treePage, perfPage = pages.Home, pages.Farm, pages.Trees, pages.Performance
+local homePage, farmPage, treePage, shopPage, perfPage = pages.Home, pages.Farm, pages.Trees, pages.Shop, pages.Performance
 local searchPage = makePage("Search")
 local noResults = text(searchPage, "NoResults", "No matching features.", UDim2.new(1, 0, 0, 48), UDim2.new(), 14, MUT)
 noResults.Visible = false
@@ -1656,6 +1825,74 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
     return { repaint = paint }
 end
 
+-- Zeile mit zwei Wahlknöpfen, für Optionen die keine Liste brauchen.
+local function subChoice(body, pageName, value, rootCard, order, options, get, set)
+    local r = subRow(body, pageName, value, rootCard, order)
+    local wrap = frame(r, "Choice", UDim2.fromOffset(236, 48), UDim2.new(1, -4, 0.5, 0), SIDE)
+    wrap.AnchorPoint = Vector2.new(1, 0.5)
+    round(wrap, 8)
+    outline(wrap)
+    local entries = {}
+    local function paint()
+        for _, e in ipairs(entries) do
+            local on = e.value == get()
+            e.button.BackgroundColor3 = on and SELECTED or SIDE
+            e.label.TextColor3 = on and ACCENT or MUT
+        end
+    end
+    for i, opt in ipairs(options) do
+        local b = button(wrap, "Choice_" .. i, UDim2.new(0.5, -6, 1, -8), UDim2.new((i - 1) * 0.5, 4, 0, 4), SIDE)
+        round(b, 6)
+        local l = text(b, "Label", opt.label or opt.value, UDim2.new(1, 0, 1, 0), UDim2.new(), 14, MUT, true)
+        l.TextXAlignment = Enum.TextXAlignment.Center
+        entries[#entries + 1] = { value = opt.value, button = b, label = l }
+        connect(b.Activated, function() set(opt.value) paint() end)
+    end
+    local function fit()
+        local narrow = r.AbsoluteSize.X < 460
+        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
+        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
+        wrap.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
+        wrap.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+    end
+    connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
+    responsive[#responsive + 1] = fit
+    painters[#painters + 1] = paint
+    paint()
+    return { repaint = paint }
+end
+
+-- Zeile mit Zahlenfeld, nimmt nur Ziffern.
+local function subNumber(body, pageName, value, rootCard, order, get, set)
+    local r = subRow(body, pageName, value, rootCard, order)
+    local box = make("TextBox", { Name = "Input", Size = UDim2.fromOffset(236, 48),
+        Position = UDim2.new(1, -4, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = SIDE, BorderSizePixel = 0, Text = tostring(get() or 0),
+        PlaceholderText = "0", PlaceholderColor3 = MUT, TextColor3 = TXT,
+        Font = Enum.Font.GothamBold, TextSize = 15, ClearTextOnFocus = false,
+        TextXAlignment = Enum.TextXAlignment.Left }, r)
+    round(box, 8)
+    local border = outline(box)
+    padding(box, 14, 0, 14, 0)
+    connect(box.Focused, function() border.Color = ACCENT end)
+    connect(box.FocusLost, function()
+        border.Color = STROKE
+        local n = tonumber((string.gsub(box.Text, "%D", ""))) or 0
+        set(n)
+        box.Text = tostring(n)
+    end)
+    local function fit()
+        local narrow = r.AbsoluteSize.X < 460
+        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
+        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
+        box.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
+        box.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+    end
+    connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
+    responsive[#responsive + 1] = fit
+    return { repaint = function() if not box:IsFocused() then box.Text = tostring(get() or 0) end end }
+end
+
 section(homePage, "This session", 1)
 do
     local statRow = frame(homePage, "Stats", UDim2.new(1, 0, 0, 148))
@@ -1772,6 +2009,45 @@ local priorityHelp = text(treePage, "PriorityHelp", "Priority 1 is planted first
 priorityHelp.LayoutOrder = 3
 priorityHelp.TextWrapped = true
 priorityHelp.TextTruncate = Enum.TextTruncate.None
+
+section(shopPage, "Gem store", 1)
+do
+    local ec = panel(shopPage, "Shop", "Auto buy", "Empty every picked slot, then wait for new stock.", 2, 96)
+    toggle(ec.head,
+        function() return getgenv().CW_Shop end,
+        function(v) getgenv().CW_Shop = v end, -76)
+    for i, it in ipairs(CW_SHOP_ITEMS) do
+        subToggle(ec.body, "Shop", it.name .. " (" .. it.price .. " gems)", ec, i * 10,
+            function() return shopPicked(it.id) end,
+            function(v)
+                local pick = getgenv().CW_ShopPick
+                if type(pick) ~= "table" then
+                    pick = {}
+                    getgenv().CW_ShopPick = pick
+                end
+                pick[it.id] = v or nil
+            end)
+    end
+end
+section(shopPage, "Restock", 3)
+do
+    local ec = panel(shopPage, "Shop", "Auto refresh", "Roll fresh stock once nothing picked is left, then buy again.", 4, 96)
+    toggle(ec.head,
+        function() return getgenv().CW_ShopRoll end,
+        function(v) getgenv().CW_ShopRoll = v end, -76)
+    subChoice(ec.body, "Shop", "Pay rolls with", ec, 10,
+        {{ value = "Gems", label = "Gems (100)" }, { value = "Wood Chips", label = "Chips (5000)" }},
+        function() return getgenv().CW_ShopPay end,
+        function(v) getgenv().CW_ShopPay = v end)
+    subNumber(ec.body, "Shop", "Keep at least this many gems", ec, 20,
+        function() return getgenv().CW_ShopFloor end,
+        function(v) getgenv().CW_ShopFloor = v end)
+end
+local shopHelp = text(shopPage, "ShopHelp", "Buying and rolling teleport you to the store and back. Once gems hit the limit every gem purchase stops, wood chip rolls keep running.",
+    UDim2.new(1, 0, 0, 44), UDim2.new(), 14, MUT)
+shopHelp.LayoutOrder = 5
+shopHelp.TextWrapped = true
+shopHelp.TextTruncate = Enum.TextTruncate.None
 
 section(perfPage, "Rendering", 1)
 toggle(card(perfPage, "Performance", "Low quality mode", "Reduce effects, lights and shadows. Everything is restored when you turn it off.", 2),
@@ -2019,6 +2295,7 @@ showPage()
 local STATUS_NAMES = {
     {"CW_Farm", "Seed farm"}, {"CW_Trees", "Trees"}, {"CW_Frenzy", "Frenzy"},
     {"CW_CollectCan", "Cans"}, {"CW_CollectFert", "Fertilizer"}, {"CW_Fert", "Fertilize"},
+    {"CW_Shop", "Shop"}, {"CW_ShopRoll", "Restock"},
 }
 task.spawn(function()
     while gui.Parent do
