@@ -12,6 +12,7 @@ getgenv().CW_Rolled = false
 getgenv().CW_AntiShake = getgenv().CW_AntiShake or false
 getgenv().CW_LowQ = getgenv().CW_LowQ or false
 getgenv().CW_Rolls = 0
+getgenv().CW_Chopped = getgenv().CW_Chopped or 0
 getgenv().CW_FarmTime = 0
 getgenv().CW_FarmSince = nil
 getgenv().CW_Frenzy = getgenv().CW_Frenzy or false
@@ -665,6 +666,7 @@ local function chopAndCollect(tree)
         local got = (woodChips() - chips0) + (countLogs() - logs0)
         getgenv().CW_LastTree = "chopped+" .. tostring(got) .. " [" .. table.concat(names, ",") .. "] " .. os.date("%H:%M:%S")
     end
+    if felled then getgenv().CW_Chopped = (getgenv().CW_Chopped or 0) + 1 end
     return felled
 end
 
@@ -1334,8 +1336,10 @@ task.spawn(function()
             if t then t.Text = tstr end
             local p = g:FindFirstChild("CWValPhase", true)
             if p then p.Text = pstr end
-            local rate = g:FindFirstChild("CWValRate", true)
-            if rate then rate.Text = string.format("%.0f", getgenv().CW_RollsPerMin or 0) end
+            local tr = g:FindFirstChild("CWValTrees", true)
+            if tr then tr.Text = tostring(getgenv().CW_Chopped or 0) end
+            local bu = g:FindFirstChild("CWValBuys", true)
+            if bu then bu.Text = tostring(getgenv().CW_ShopBought or 0) end
             local sb = g:FindFirstChild("CWSubPhase", true)
             if sb then sb.Text = getgenv().CW_Farm and "Farm seeds is running" or "Farm seeds is off" end
         end)
@@ -1395,10 +1399,6 @@ local function frame(owner, name, size, pos, color)
         BackgroundColor3 = color or CARD, BackgroundTransparency = color and 0 or 1,
         BorderSizePixel = 0 }, owner)
 end
--- Versalien mit Haarspatien, für Marken und Abschnittsmarken.
-local function spaced(value)
-    return (string.gsub(string.upper(value), ".", "%0\u{2009}"))
-end
 local function text(owner, name, value, size, pos, fontSize, color, bold, display)
     return make("TextLabel", { Name = name, Text = value, Size = size, Position = pos,
         BackgroundTransparency = 1, FontFace = face(bold and W.SemiBold or W.Regular, display),
@@ -1424,13 +1424,15 @@ local function hover(obj, base, over)
     connect(obj.MouseLeave, function() animate(obj, { BackgroundColor3 = base }) end)
 end
 local ICONS = {
-    Home = {{3,10,12,3},{12,3,21,10},{6,9,6,21},{6,21,18,21},{18,21,18,9},{10,21,10,14},{10,14,14,14},{14,14,14,21}},
+    Home = {{3,11,12,3},{12,3,21,11},{6,10,6,20},{18,10,18,20},{6,20,18,20}},
     Farm = {{4,20,4,13},{10,20,10,9},{16,20,16,4},{3,4,9,4},{9,4,12,1},{3,23,22,23}},
     Trees = {{12,2,4,12},{4,12,8,12},{8,12,3,18},{3,18,21,18},{21,18,16,12},{16,12,20,12},{20,12,12,2},{12,18,12,23}},
     ["Sell Zone"] = {{3,5,13,5},{13,5,22,14},{22,14,14,22},{14,22,3,11},{3,11,3,5},{7,8,8,8}},
     Shop = {{4,9,20,9},{4,9,6,3},{6,3,18,3},{18,3,20,9},{5,10,5,21},{5,21,19,21},{19,21,19,10},{10,21,10,15},{10,15,15,15},{15,15,15,21}},
     Performance = {{3,7,21,7},{3,17,21,17},{8,3,8,11},{16,13,16,21}},
-    Search = {{4,4,13,4},{13,4,17,8},{17,8,17,13},{17,13,13,17},{13,17,8,17},{8,17,4,13},{4,13,4,4},{16,16,22,22}},
+    Search = {{10,4,14.3,4.9},{14.3,4.9,17.2,7.8},{17.2,7.8,18,11.5},{18,11.5,16.4,15},{16.4,15,13.2,17.2},
+        {13.2,17.2,9.4,17.2},{9.4,17.2,6.1,15.4},{6.1,15.4,4.3,12.2},{4.3,12.2,4.6,8.6},{4.6,8.6,6.7,5.7},
+        {6.7,5.7,10,4},{15.6,15.6,21,21}},
     Arrow = {{5,12,20,12},{14,6,20,12},{20,12,14,18}},
     Chevron = {{6,9,12,15},{12,15,18,9}},
     Check = {{5,12,10,17},{10,17,19,7}},
@@ -1466,7 +1468,7 @@ local function padding(owner, left, top, right, bottom)
 end
 local gui = make("ScreenGui", { Name = "CarveWoodUI", ResetOnSpawn = false,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50 }, parent)
-local main = frame(gui, "Main", UDim2.fromOffset(1020, 680), UDim2.fromScale(0.5, 0.5), BG)
+local main = frame(gui, "Main", UDim2.fromOffset(900, 604), UDim2.fromScale(0.5, 0.5), BG)
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Active = true
 main.ClipsDescendants = true
@@ -1600,7 +1602,7 @@ local function navItem(info, order)
     b.LayoutOrder = order
     round(b, 8)
     icon(b, name, UDim2.fromOffset(13, 15))
-    text(b, "Label", name, UDim2.new(1, -56, 1, 0), UDim2.fromOffset(47, 0), 16, MUT, true)
+    text(b, "Label", name, UDim2.new(1, -56, 1, 0), UDim2.fromOffset(47, 0), 17, MUT, true)
     navBtns[name] = b
     connect(b.Activated, function() navigate(name) end)
     connect(b.MouseEnter, function() if name ~= currentPage then animate(b, { BackgroundColor3 = CARD }) end end)
@@ -1608,11 +1610,11 @@ local function navItem(info, order)
 end
 
 local function section(page, value, order)
-    local row = frame(page, "Section", UDim2.new(1, 0, 0, 30))
+    local row = frame(page, "Section", UDim2.new(1, 0, 0, 32))
     row.LayoutOrder = order
-    local tick = frame(row, "Tick", UDim2.fromOffset(14, 2), UDim2.fromOffset(0, 15), STROKE)
-    round(tick, 1)
-    text(row, "Label", spaced(value), UDim2.new(1, -26, 1, 0), UDim2.fromOffset(26, 0), 12, MUT, true)
+    local tick = frame(row, "Tick", UDim2.fromOffset(3, 14), UDim2.fromOffset(0, 9), ACCENT)
+    round(tick, 2)
+    text(row, "Label", value, UDim2.new(1, -16, 1, 0), UDim2.fromOffset(14, 0), 15, MUT, true)
     return row
 end
 
@@ -1622,8 +1624,8 @@ local function card(page, pageName, value, desc, order, h)
     row.ClipsDescendants = true
     round(row, 10)
     outline(row)
-    local t = text(row, "Heading", value, UDim2.new(1, -158, 0, 26), UDim2.fromOffset(20, 17), 18, TXT, true)
-    local d = text(row, "Description", desc, UDim2.new(1, -158, 0, 42), UDim2.fromOffset(20, 47), 15, MUT)
+    local t = text(row, "Heading", value, UDim2.new(1, -158, 0, 28), UDim2.fromOffset(20, 16), 19, TXT, true)
+    local d = text(row, "Description", desc, UDim2.new(1, -158, 0, 42), UDim2.fromOffset(20, 48), 16, MUT)
     d.LineHeight = 1.18
     d.TextWrapped = true
     d.TextTruncate = Enum.TextTruncate.None
@@ -1758,7 +1760,7 @@ end
 local function subRow(body, pageName, value, rootCard, order)
     local r = frame(body, value:gsub("%W", ""), UDim2.new(1, 0, 0, 66))
     r.LayoutOrder = order
-    text(r, "Label", value, UDim2.new(1, -140, 1, 0), UDim2.new(), 16, TXT)
+    text(r, "Label", value, UDim2.new(1, -140, 1, 0), UDim2.new(), 17, TXT)
     allCards[#allCards + 1] = { frame = r, page = pageName, title = value,
         text = string.lower(pageName .. " " .. value), root = rootCard.frame, open = rootCard.setOpen }
     return r
@@ -2077,35 +2079,40 @@ end
 
 section(homePage, "This session", 1)
 do
-    local statRow = frame(homePage, "Stats", UDim2.new(1, 0, 0, 148))
-    statRow.LayoutOrder = 2
-    local tiles = {}
-    local function statTile(label, order, valName, initial, subName, subText)
-        local tile = frame(statRow, label, UDim2.new(1 / 3, -8, 1, 0), UDim2.new((order - 1) / 3, (order - 1) * 4, 0, 0), CARD)
-        round(tile, 10)
-        outline(tile)
-        text(tile, "Label", spaced(label), UDim2.new(1, -36, 0, 20), UDim2.fromOffset(20, 18), 12, MUT, true)
-        text(tile, valName, initial, UDim2.new(1, -40, 0, 50), UDim2.fromOffset(20, 44), order == 2 and 32 or 36, order == 1 and ACCENT or TXT, true, true)
-        text(tile, subName, subText, UDim2.new(1, -40, 0, 26), UDim2.fromOffset(20, 106), 15, MUT)
-        tiles[order] = tile
+    local strip = frame(homePage, "Stats", UDim2.new(1, 0, 0, 96), nil, CARD)
+    strip.LayoutOrder = 2
+    round(strip, 10)
+    outline(strip)
+    local cells = {}
+    for i, d in ipairs({{"Runtime", "CWValTime", "0s"}, {"Seed rerolls", "CWValRolls", "0"},
+        {"Trees chopped", "CWValTrees", "0"}, {"Items bought", "CWValBuys", "0"}}) do
+        local cell = frame(strip, d[2] .. "Cell", UDim2.new(0.25, 0, 1, 0), UDim2.new((i - 1) / 4, 0, 0, 0))
+        text(cell, "Label", d[1], UDim2.new(1, -24, 0, 20), UDim2.fromOffset(20, 18), 14, MUT)
+        text(cell, d[2], d[3], UDim2.new(1, -24, 0, 34), UDim2.fromOffset(20, 42), 27, i == 1 and ACCENT or TXT, true, true)
+        if i > 1 then
+            local sep = frame(cell, "Sep", UDim2.fromOffset(1, 48), UDim2.fromOffset(0, 24), STROKE)
+            sep.BackgroundTransparency = 0.35
+        end
+        cells[i] = cell
     end
-    statTile("Rerolls", 1, "CWValRolls", tostring(getgenv().CW_Rolls or 0), "CWSubRolls", "Total this session")
-    statTile("Farm time", 2, "CWValTime", "0s", "CWSubTime", "Time with farm running")
-    statTile("Rerolls per minute", 3, "CWValRate", "0", "CWSubRate", "Current pace")
     local function fit()
-        local narrow = statRow.AbsoluteSize.X < 560
-        statRow.Size = UDim2.new(1, 0, 0, narrow and 432 or 152)
-        for i, tile in ipairs(tiles) do
-            tile.Size = narrow and UDim2.new(1, 0, 0, 132) or UDim2.new(1 / 3, -8, 1, 0)
-            tile.Position = narrow and UDim2.fromOffset(0, (i - 1) * 144) or UDim2.new((i - 1) / 3, (i - 1) * 4, 0, 0)
+        local narrow = strip.AbsoluteSize.X < 520
+        strip.Size = UDim2.new(1, 0, 0, narrow and 192 or 96)
+        for i, cell in ipairs(cells) do
+            cell.Size = narrow and UDim2.new(0.5, 0, 0, 96) or UDim2.new(0.25, 0, 1, 0)
+            cell.Position = narrow and UDim2.new(((i - 1) % 2) * 0.5, 0, 0, math.floor((i - 1) / 2) * 96)
+                or UDim2.new((i - 1) / 4, 0, 0, 0)
+            local sep = cell:FindFirstChild("Sep")
+            if sep then sep.Visible = not narrow or i % 2 == 0 end
         end
     end
-    connect(statRow:GetPropertyChangedSignal("AbsoluteSize"), fit)
+    connect(strip:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
 end
 section(homePage, "Workflows", 5)
 for i, data in ipairs({{"Farm", "Seed farming", "Rerolls, frenzy and collection", "CW_Farm"},
-    {"Trees", "Tree management", "Planting, priorities and fertilizer", "CW_Trees"}}) do
+    {"Trees", "Tree management", "Planting, priorities and fertilizer", "CW_Trees"},
+    {"Shop", "Gem store", "Buying picked items and restocking", "CW_Shop"}}) do
     local row = button(homePage, "Open_" .. data[1], UDim2.new(1, 0, 0, 112), nil, CARD)
     row.LayoutOrder = i + 5
     round(row, 10)
@@ -2320,7 +2327,7 @@ cancelText.TextXAlignment = Enum.TextXAlignment.Center
 confirmText.TextXAlignment = Enum.TextXAlignment.Center
 connect(cancel.Activated, function() modal.Visible = false end)
 
-local fullSize = Vector2.new(1020, 680)
+local fullSize = Vector2.new(900, 604)
 local mobileSearchOpen = false
 local function availableSize()
     local size = gui.AbsoluteSize
