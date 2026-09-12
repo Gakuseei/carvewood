@@ -1414,6 +1414,7 @@ local ICONS = {
     Search = {{4,4,13,4},{13,4,17,8},{17,8,17,13},{17,13,13,17},{13,17,8,17},{8,17,4,13},{4,13,4,4},{16,16,22,22}},
     Arrow = {{5,12,20,12},{14,6,20,12},{20,12,14,18}},
     Chevron = {{6,9,12,15},{12,15,18,9}},
+    Check = {{5,12,10,17},{10,17,19,7}},
     Close = {{6,6,18,18},{18,6,6,18}},
     Minus = {{5,12,19,12}},
     Plus = {{5,12,19,12},{12,5,12,19}},
@@ -1826,6 +1827,103 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
 end
 
 -- Zeile mit zwei Wahlknöpfen, für Optionen die keine Liste brauchen.
+-- Dropdown mit Mehrfachauswahl: Liste bleibt offen, jede Zeile hakt sich einzeln an.
+local function subMulti(body, pageName, value, rootCard, order, options, isOn, setOn)
+    local r = subRow(body, pageName, value, rootCard, order)
+    local b = button(r, "Dropdown", UDim2.fromOffset(236, 48), UDim2.new(1, -4, 0.5, 0), SIDE)
+    b.AnchorPoint = Vector2.new(1, 0.5)
+    round(b, 8)
+    local border = outline(b)
+    local selected = text(b, "Value", "", UDim2.new(1, -54, 0, 22), UDim2.fromOffset(14, 5), 15, TXT, true)
+    local summary = text(b, "Summary", "", UDim2.new(1, -54, 0, 16), UDim2.fromOffset(14, 27), 12, MUT)
+    local arrow = icon(b, "Chevron", UDim2.new(1, -32, 0.5, -9), MUT, 18)
+    local list = frame(body, "Picks_" .. order, UDim2.new(1, 0, 0, 300), nil, SIDE)
+    list.LayoutOrder = order + 1
+    list.Visible = false
+    list.ClipsDescendants = true
+    round(list, 8)
+    outline(list)
+    DD2_LISTS[#DD2_LISTS + 1] = list
+    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.new(1, -20, 1, -20), BackgroundTransparency = 1, BorderSizePixel = 0,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y }, list)
+    stack(sc, 2)
+    padding(sc, 2, 1, 7, 1)
+    local optionButtons = {}
+    local function paint()
+        local picked = {}
+        for i, opt in ipairs(options) do
+            local on = isOn(opt.value) == true
+            local ob = optionButtons[i]
+            ob.BackgroundColor3 = on and SELECTED or SIDE
+            ob.Box.BackgroundColor3 = on and ACCENT or SIDE
+            ob.Box.Mark.Visible = on
+            ob.Box.BoxStroke.Color = on and ACCENT or STROKE
+            if on then picked[#picked + 1] = opt.label or opt.value end
+        end
+        if #picked == 0 then
+            selected.Text = "Nothing picked"
+            selected.TextColor3 = MUT
+            summary.Text = "Tap to choose items"
+        else
+            selected.Text = #picked == 1 and picked[1] or (#picked .. " items")
+            selected.TextColor3 = TXT
+            summary.Text = table.concat(picked, ", ")
+        end
+    end
+    for i, opt in ipairs(options) do
+        local ob = button(sc, "Pick_" .. opt.value, UDim2.new(1, 0, 0, 54), nil, SIDE)
+        ob.LayoutOrder = i
+        round(ob, 6)
+        local box = frame(ob, "Box", UDim2.fromOffset(20, 20), UDim2.fromOffset(12, 17), SIDE)
+        round(box, 5)
+        local boxStroke = outline(box)
+        boxStroke.Name = "BoxStroke"
+        local mark = icon(box, "Check", UDim2.fromOffset(2, 2), BG, 16)
+        mark.Name = "Mark"
+        mark.Rotation = 0
+        text(ob, "Name", opt.value, UDim2.new(1, -104, 0, 22), UDim2.fromOffset(44, 6), 15, TXT, true)
+        text(ob, "Note", opt.note or "", UDim2.new(1, -104, 0, 18), UDim2.fromOffset(44, 29), 12, MUT)
+        optionButtons[i] = ob
+        connect(ob.Activated, function() setOn(opt.value, not isOn(opt.value)) paint() end)
+        connect(ob.MouseEnter, function() if not isOn(opt.value) then ob.BackgroundColor3 = CARD end end)
+        connect(ob.MouseLeave, paint)
+    end
+    connect(list:GetPropertyChangedSignal("Visible"), function()
+        arrow.Rotation = list.Visible and 180 or 0
+        border.Color = list.Visible and ACCENT or STROKE
+    end)
+    connect(b.Activated, function()
+        local was = list.Visible
+        closeDD2()
+        list.Visible = not was
+        if not was then
+            paint()
+            task.defer(function()
+                if not gui.Parent or not list.Visible then return end
+                local pg = pages[pageName]
+                local overflow = list.AbsolutePosition.Y + list.AbsoluteSize.Y - pg.AbsolutePosition.Y - pg.AbsoluteSize.Y
+                if overflow > 0 then
+                    local top = r.AbsolutePosition.Y - pg.AbsolutePosition.Y + pg.CanvasPosition.Y
+                    pg.CanvasPosition = Vector2.new(0, math.max(0, math.min(top, pg.CanvasPosition.Y + overflow + 12)))
+                end
+            end)
+        end
+    end)
+    local function fit()
+        local narrow = r.AbsoluteSize.X < 460
+        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
+        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
+        b.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
+        b.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+    end
+    connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
+    responsive[#responsive + 1] = fit
+    paint()
+    return { repaint = paint }
+end
+
 local function subChoice(body, pageName, value, rootCard, order, options, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
     local wrap = frame(r, "Choice", UDim2.fromOffset(236, 48), UDim2.new(1, -4, 0.5, 0), SIDE)
@@ -2016,18 +2114,22 @@ do
     toggle(ec.head,
         function() return getgenv().CW_Shop end,
         function(v) getgenv().CW_Shop = v end, -76)
-    for i, it in ipairs(CW_SHOP_ITEMS) do
-        subToggle(ec.body, "Shop", it.name .. " (" .. it.price .. " gems)", ec, i * 10,
-            function() return shopPicked(it.id) end,
-            function(v)
-                local pick = getgenv().CW_ShopPick
-                if type(pick) ~= "table" then
-                    pick = {}
-                    getgenv().CW_ShopPick = pick
-                end
-                pick[it.id] = v or nil
-            end)
+    local opts = {}
+    local byName = {}
+    for _, it in ipairs(CW_SHOP_ITEMS) do
+        opts[#opts + 1] = { value = it.name, note = it.price .. " gems" }
+        byName[it.name] = it.id
     end
+    subMulti(ec.body, "Shop", "Items to buy", ec, 10, opts,
+        function(name) return shopPicked(byName[name]) end,
+        function(name, on)
+            local pick = getgenv().CW_ShopPick
+            if type(pick) ~= "table" then
+                pick = {}
+                getgenv().CW_ShopPick = pick
+            end
+            pick[byName[name]] = on or nil
+        end)
 end
 section(shopPage, "Restock", 3)
 do
