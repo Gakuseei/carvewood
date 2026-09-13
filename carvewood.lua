@@ -962,7 +962,7 @@ do
     local function needsWater(planter)
         if planter:GetAttribute("TreePlanterStatus") ~= "Growing" then return false end
         local ends = tonumber(planter:GetAttribute("TreeWateringBoostEndsAt"))
-        return not ends or ends - os.time() <= 2
+        return not ends or ends - os.time() <= 6
     end
 
     task.spawn(function()
@@ -988,12 +988,12 @@ do
                         local can = pickCan()
                         if not can or not hum then break end
                         pcall(function() hum:EquipTool(can) end)
-                        task.wait(0.25)
+                        task.wait(0.12)
                         local pos
                         pcall(function() pos = planter:GetPivot().Position end)
                         if typeof(pos) == "Vector3" and hrp() then
                             pcall(function() hrp().CFrame = CFrame.new(pos + Vector3.new(0, 3, 6), pos) end)
-                            task.wait(0.3)
+                            task.wait(0.18)
                             local ok, r = pcall(function()
                                 return rem:InvokeServer({
                                     PlanterIndex = planter:GetAttribute("PlanterIndex"),
@@ -1004,14 +1004,14 @@ do
                                 getgenv().CW_Watered = (getgenv().CW_Watered or 0) + 1
                                 didWork = true
                             end
-                            task.wait(0.15)
+                            task.wait(0.05)
                         end
                     end
                     if hum then pcall(function() hum:UnequipTools() end) end
                     if save and hrp() then pcall(function() hrp().CFrame = save end) end
                 end
             end
-            task.wait(didWork and 0.4 or 3)
+            task.wait(didWork and 0.2 or 1)
         end
     end)
 end
