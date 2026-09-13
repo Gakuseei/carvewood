@@ -1522,16 +1522,16 @@ local footHint = text(footer, "Hint", UIS.TouchEnabled and "Drag the header to m
 -- Eingeklappt: eine Pille mit Markenzeichen, Laufstatus und Aufklapp-Pfeil.
 local mini, paintMini
 do
-    mini = frame(main, "Mini", UDim2.new(1, 0, 1, 0), nil, SIDE)
+    mini = frame(main, "Mini", UDim2.new(1, 0, 1, 0))
     mini.Visible = false
     mini.ZIndex = 6
     mini.Active = true
-    icon(mini, "Brand", UDim2.fromOffset(16, 17), ACCENT, 20)
-    text(mini, "Title", "CarveWood", UDim2.fromOffset(140, 20), UDim2.fromOffset(46, 9), 15, TXT, true, true)
-    local dot = frame(mini, "Dot", UDim2.fromOffset(7, 7), UDim2.fromOffset(47, 33), MUT)
+    icon(mini, "Brand", UDim2.fromOffset(18, 20), ACCENT, 22)
+    text(mini, "Title", "CarveWood", UDim2.fromOffset(150, 22), UDim2.fromOffset(50, 10), 17, TXT, true, true)
+    local dot = frame(mini, "Dot", UDim2.fromOffset(7, 7), UDim2.fromOffset(51, 37), MUT)
     round(dot, 4)
-    local status = text(mini, "Status", "Idle", UDim2.new(1, -118, 0, 17), UDim2.fromOffset(60, 28), 12, MUT)
-    local expand = button(mini, "Expand", UDim2.fromOffset(34, 34), UDim2.new(1, -9, 0.5, 0), CARD)
+    local status = text(mini, "Status", "Idle", UDim2.new(1, -126, 0, 18), UDim2.fromOffset(64, 31), 13, MUT)
+    local expand = button(mini, "Expand", UDim2.fromOffset(36, 36), UDim2.new(1, -10, 0.5, 0), CARD)
     expand.AnchorPoint = Vector2.new(1, 0.5)
     expand.ZIndex = 7
     round(expand, 11)
@@ -2458,7 +2458,7 @@ end
 local function fitViewport()
     local vp = availableSize()
     fullSize = Vector2.new(math.min(fullSize.X, vp.X - 24), math.min(fullSize.Y, vp.Y - 24))
-    main.Size = collapsed and UDim2.fromOffset(math.min(272, vp.X - 24), 58) or UDim2.fromOffset(fullSize.X, fullSize.Y)
+    main.Size = collapsed and UDim2.fromOffset(math.min(292, vp.X - 24), 64) or UDim2.fromOffset(fullSize.X, fullSize.Y)
     clampPosition()
     layout()
 end
@@ -2472,6 +2472,7 @@ local function setCollapsed(value)
     main:SetAttribute("Collapsed", value)
     main:SetAttribute("Animating", true)
     mini.Visible = value
+    animate(main, { BackgroundColor3 = value and SIDE or BG }, 0.34)
     header.Visible = not value
     side.Visible = not value
     content.Visible = not value
@@ -2483,9 +2484,9 @@ local function setCollapsed(value)
     mobileSearchOpen = false
     modal.Visible = false
     local vp = availableSize()
-    animate(main, { Size = value and UDim2.fromOffset(math.min(272, vp.X - 24), 58)
+    animate(main, { Size = value and UDim2.fromOffset(math.min(292, vp.X - 24), 64)
         or UDim2.fromOffset(fullSize.X, fullSize.Y) }, 0.34)
-    animate(mainCorner, { CornerRadius = UDim.new(0, value and 29 or 12) }, 0.34)
+    animate(mainCorner, { CornerRadius = UDim.new(0, value and 32 or 12) }, 0.34)
     task.delay(0.36, function()
         main:SetAttribute("Animating", false)
         clampPosition()
