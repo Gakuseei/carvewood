@@ -2772,7 +2772,8 @@ local function subSlider(body, pageName, value, rootCard, order, stops, get, set
     local r = subRow(body, pageName, value, rootCard, order)
     local lo, hi = stops[1], stops[#stops]
     local val = make("TextBox", { Name = "Val", Text = "", Size = UDim2.fromOffset(70, 26),
-        Position = UDim2.new(1, -236, 0.5, -13), BackgroundTransparency = 1, BorderSizePixel = 0,
+        Position = UDim2.new(1, -236, 0.5, 0), AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundTransparency = 1, BorderSizePixel = 0,
         FontFace = face(W.SemiBold), TextSize = 15, TextColor3 = C.ACCENT,
         TextXAlignment = Enum.TextXAlignment.Right, ClearTextOnFocus = false }, r)
     local hit = button(r, "Track", UDim2.fromOffset(160, 34), UDim2.new(1, -2, 0.5, 0))
@@ -2832,7 +2833,7 @@ local function subSlider(body, pageName, value, rootCard, order, stops, get, set
         r.Label.Size = UDim2.new(1, narrow and -28 or -248, 0, narrow and 34 or 56)
         hit.Size = narrow and UDim2.new(1, -80, 0, 34) or UDim2.fromOffset(160, 34)
         hit.Position = narrow and UDim2.new(1, -2, 1, -26) or UDim2.new(1, -2, 0.5, 0)
-        val.Position = narrow and UDim2.new(1, -74, 1, -36) or UDim2.new(1, -236, 0.5, -10)
+        val.Position = narrow and UDim2.new(1, -74, 1, -58) or UDim2.new(1, -236, 0.5, 0)
         paint()
     end
     -- Der Wert laesst sich auch tippen, dann zaehlt jede Zahl und nicht nur die Stufen.
