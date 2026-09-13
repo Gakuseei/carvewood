@@ -632,18 +632,40 @@ do
         local h = hrp()
         if not h then return end
         local RunService = game:GetService("RunService")
-        local t0 = os.clock()
-        while os.clock() - t0 < 3 do
-            local c = dropContainer()
-            if c and #c:GetChildren() > 0 then break end
-            task.wait(0.05)
-        end
 
         -- Holzspaene folgen dem Spieler, wenn man sie jeden Frame nachsetzt.
         -- Logs buchen auf ihrer Ursprungsposition, die muss man anfliegen.
         local chips = {}
+
+        -- TreeDropEffects fuehrt selbst Buch ueber jeden Drop, das ist genauer als der Ordner.
+        local function dropStates()
+            local ok, mods = pcall(function()
+                return require(game:GetService("ReplicatedFirst"):WaitForChild("Client")).ActiveModules
+            end)
+            local m = ok and type(mods) == "table" and mods.TreeDropEffects or nil
+            return type(m) == "table" and type(m.States) == "table" and m.States or nil
+        end
+
         local function collectLists()
             local logs = {}
+            local states = dropStates()
+            if states then
+                table.clear(chips)
+                for _, st in pairs(states) do
+                    if type(st) == "table" and not st.Destroyed and st.Instance and st.Instance.Parent then
+                        if st.Kind == "WoodChips" then
+                            chips[#chips + 1] = st.Instance
+                        elseif st.Kind == "Log" and st.Mode ~= "Pending" and st.Mode ~= "Homing" then
+                            -- Ein Log, das unter einem landet, wartet sonst darauf, dass man
+                            -- den Aufsammelradius einmal verlaesst.
+                            st.RequirePickupExit = false
+                            local pos = st.Root and st.Root.Position or dropPos(st.Instance)
+                            if pos then logs[#logs + 1] = pos end
+                        end
+                    end
+                end
+                return logs
+            end
             pcall(function()
                 local c = dropContainer()
                 if not c then return end
@@ -658,6 +680,12 @@ do
                 end
             end)
             return logs
+        end
+
+        local t0 = os.clock()
+        while os.clock() - t0 < 2.5 do
+            if #collectLists() > 0 or #chips > 0 then break end
+            task.wait(0.05)
         end
 
         local pulling = RunService.RenderStepped:Connect(function()
@@ -682,11 +710,11 @@ do
             local logs = collectLists()
             peak = math.max(peak, #logs)
             if #logs == 0 then
-                if #chips > 0 then task.wait(0.25) end
+                if #chips > 0 then task.wait(0.2) end
                 quiet = quiet + 1
                 -- Kleine Baeume sind sofort durch, nur bei dicken Staemmen lohnt das Warten.
                 if quiet > (peak >= 6 and 3 or 1) then break end
-                task.wait(peak >= 6 and 0.4 or 0.15)
+                task.wait(peak >= 6 and 0.35 or 0.12)
                 continue
             end
             quiet = 0
