@@ -38,6 +38,9 @@ getgenv().CW_Shelve = getgenv().CW_Shelve or false
 getgenv().CW_CarvePick = getgenv().CW_CarvePick or {}
 getgenv().CW_ShelvePick = getgenv().CW_ShelvePick or {}
 getgenv().CW_ShelveAuto = getgenv().CW_ShelveAuto or false
+getgenv().CW_CustMin = getgenv().CW_CustMin or 0
+getgenv().CW_CustStyles = getgenv().CW_CustStyles or {}
+getgenv().CW_Declined = getgenv().CW_Declined or 0
 getgenv().CW_Carved = getgenv().CW_Carved or 0
 getgenv().CW_Shelved = getgenv().CW_Shelved or 0
 getgenv().CW_Customers = getgenv().CW_Customers or false
@@ -1324,24 +1327,48 @@ do
         return out
     end
 
-    -- Kundenangebote haengen im SaleNPCs-Modul, annehmen geht ohne Laufweg.
+    -- VIP-Kunden laufen als Gold, alles andere steht direkt im OfferStyle.
+    local function offerStyle(p)
+        local s = tostring(p.OfferStyle)
+        if s == "Alien" or s == "Rainbow" or s == "Gold" then return s end
+        return p.VIP == true and "Gold" or "Normal"
+    end
+
+    -- Der Client verteilt Server-Events ueber ActiveRemotes, da haengt sich der Script dazwischen.
     task.spawn(function()
+        local slot
         while getgenv().CW_Running and getgenv().CW_Gen == myGen do
-            if getgenv().CW_Customers then
-                local rem = carveRemote("offer")
-                local client = Client
-                local sale = client and client.ActiveModules and client.ActiveModules.SaleNPCs
-                if rem and sale and type(sale.ActiveOffers) == "table" then
-                    for id in pairs(sale.ActiveOffers) do
-                        if not getgenv().CW_Customers then break end
-                        local ok = pcall(function() rem:FireServer({ OfferId = id, Accepted = true }) end)
-                        if ok then getgenv().CW_Sold = (getgenv().CW_Sold or 0) + 1 end
-                        task.wait(0.15)
-                    end
-                end
-            end
-            task.wait(0.6)
+            local ar = Client and Client.ActiveRemotes
+            slot = type(ar) == "table" and ar.SaleNPCOffer or nil
+            if type(slot) == "table" and type(slot.Events) == "table" then break end
+            slot = nil
+            task.wait(1)
         end
+        if not slot then return end
+        local prev = getgenv().CW_OfferHook
+        if prev then
+            local at = table.find(slot.Events, prev)
+            if at then table.remove(slot.Events, at) end
+        end
+        local hook = function(p)
+            if getgenv().CW_Gen ~= myGen or not getgenv().CW_Customers then return end
+            if type(p) ~= "table" or type(p.OfferId) ~= "string" then return end
+            local rem = carveRemote("offer")
+            if not rem then return end
+            local pct = math.floor(((tonumber(p.Multiplier) or 1) - 1) * 100 + 0.5)
+            local style = offerStyle(p)
+            local take = pct >= (tonumber(getgenv().CW_CustMin) or 0)
+                and allowed(getgenv().CW_CustStyles, style)
+            pcall(function() rem:FireServer({ OfferId = p.OfferId, Accepted = take }) end)
+            getgenv().CW_LastOffer = ("%s%d%% %s"):format(pct >= 0 and "+" or "", pct, style)
+            if take then
+                getgenv().CW_Sold = (getgenv().CW_Sold or 0) + 1
+            else
+                getgenv().CW_Declined = (getgenv().CW_Declined or 0) + 1
+            end
+        end
+        getgenv().CW_OfferHook = hook
+        table.insert(slot.Events, hook)
     end)
 
     task.spawn(function()
@@ -2724,6 +2751,69 @@ local function subChoice(body, pageName, value, rootCard, order, options, get, s
 end
 
 -- Zeile mit Zahlenfeld, nimmt nur Ziffern.
+local function subSlider(body, pageName, value, rootCard, order, lo, hi, step, get, set)
+    local r = subRow(body, pageName, value, rootCard, order)
+    local val = text(r, "Val", "", UDim2.fromOffset(70, 20), UDim2.new(1, -236, 0.5, -10), 15, C.ACCENT, true)
+    val.TextXAlignment = Enum.TextXAlignment.Right
+    local hit = button(r, "Track", UDim2.fromOffset(160, 34), UDim2.new(1, -2, 0.5, 0))
+    hit.AnchorPoint = Vector2.new(1, 0.5)
+    local rail = frame(hit, "Rail", UDim2.new(1, 0, 0, 6), UDim2.new(0, 0, 0.5, -3), C.SIDE)
+    round(rail, 3)
+    local fill = frame(rail, "Fill", UDim2.new(0, 0, 1, 0), nil, C.ACCENT)
+    round(fill, 3)
+    local knob = frame(hit, "Knob", UDim2.fromOffset(16, 16), UDim2.new(0, -8, 0.5, -8), C.TXT)
+    round(knob, 8)
+    outline(knob, C.ACCENT)
+    local function paint()
+        local v = math.clamp(tonumber(get()) or lo, lo, hi)
+        local a = (v - lo) / (hi - lo)
+        fill.Size = UDim2.new(a, 0, 1, 0)
+        knob.Position = UDim2.new(a, -8, 0.5, -8)
+        val.Text = (v > 0 and "+" or "") .. tostring(v) .. "%"
+    end
+    local function apply(x)
+        local w = math.max(1, hit.AbsoluteSize.X)
+        local a = math.clamp((x - hit.AbsolutePosition.X) / w, 0, 1)
+        set(math.clamp(math.floor((lo + a * (hi - lo)) / step + 0.5) * step, lo, hi))
+        paint()
+    end
+    local dragging = false
+    connect(hit.InputBegan, function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            animate(knob, { Size = UDim2.fromOffset(20, 20) })
+            apply(i.Position.X)
+        end
+    end)
+    connect(hit.InputChanged, function(i)
+        if not dragging then return end
+        if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+            apply(i.Position.X)
+        end
+    end)
+    connect(UIS.InputEnded, function(i)
+        if not dragging then return end
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            animate(knob, { Size = UDim2.fromOffset(16, 16) })
+        end
+    end)
+    local function fit()
+        local narrow = r.AbsoluteSize.X < 420
+        r.Size = UDim2.new(1, 0, 0, narrow and 92 or 56)
+        r.Label.Size = UDim2.new(1, narrow and -28 or -248, 0, narrow and 34 or 56)
+        hit.Size = narrow and UDim2.new(1, -80, 0, 34) or UDim2.fromOffset(160, 34)
+        hit.Position = narrow and UDim2.new(1, -2, 1, -26) or UDim2.new(1, -2, 0.5, 0)
+        val.Position = narrow and UDim2.new(1, -74, 1, -36) or UDim2.new(1, -236, 0.5, -10)
+        paint()
+    end
+    connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
+    responsive[#responsive + 1] = fit
+    painters[#painters + 1] = paint
+    paint()
+    return { repaint = paint }
+end
+
 local function subNumber(body, pageName, value, rootCard, order, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
     local box = make("TextBox", { Name = "Input", Size = UDim2.fromOffset(236, 48),
@@ -3025,11 +3115,36 @@ do
         end)
 end
 section(pages["Sell Zone"], "Customers", 5)
-toggle(card(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Take every offer the shoppers make, no walking needed.", 6),
-    function() return getgenv().CW_Customers end,
-    function(v) getgenv().CW_Customers = v end)
 do
-    local help = text(pages["Sell Zone"], "CarveHelp", "Auto carve takes every wood while nothing is picked. Auto shelf is the opposite, it touches only what you tick, and refill carves the missing pieces.",
+    local ec = panel(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Answer offers on the spot, anything under your bar gets turned down.", 6, 74)
+    toggle(ec.head,
+        function() return getgenv().CW_Customers end,
+        function(v) getgenv().CW_Customers = v end, -70)
+    subSlider(ec.body, "Sell Zone", "Minimum offer", ec, 6, -20, 100, 5,
+        function() return getgenv().CW_CustMin end,
+        function(v) getgenv().CW_CustMin = v end)
+    local styleOpts = {
+        { value = "Normal", note = "up to +40%" },
+        { value = "Gold", note = "gold frenzy and VIP" },
+        { value = "Rainbow", note = "rainbow frenzy" },
+        { value = "Alien", note = "alien invasion" },
+    }
+    subMulti(ec.body, "Sell Zone", "Offer types", ec, 10, styleOpts,
+        function(label)
+            local pick = getgenv().CW_CustStyles
+            return type(pick) == "table" and pick[label] == true
+        end,
+        function(label, on)
+            local pick = getgenv().CW_CustStyles
+            if type(pick) ~= "table" then
+                pick = {}
+                getgenv().CW_CustStyles = pick
+            end
+            pick[label] = on or nil
+        end)
+end
+do
+    local help = text(pages["Sell Zone"], "CarveHelp", "Auto carve takes every wood while nothing is picked, auto shelf only what you tick. Offers show their bonus in percent, gold starts at +30, rainbow at +100, alien at +1400.",
         UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
     help.LayoutOrder = 7
     help.TextWrapped = true
