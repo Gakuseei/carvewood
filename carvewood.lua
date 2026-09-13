@@ -1,4 +1,4 @@
---[[ CarveWood v9.4 | Delta mobile | no login, no key ]]
+--[[ CarveWood v10.0 | Delta mobile | no login, no key ]]
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -1365,16 +1365,16 @@ if old then old:Destroy() end
 
 local UIS = game:GetService("UserInputService")
 local Tween = game:GetService("TweenService")
-local ACCENT = Color3.fromRGB(140, 214, 166)
-local BG = Color3.fromRGB(20, 22, 24)
-local SIDE = Color3.fromRGB(16, 18, 20)
-local CARD = Color3.fromRGB(29, 32, 34)
-local CTRL = Color3.fromRGB(42, 47, 49)
-local STROKE = Color3.fromRGB(52, 58, 60)
-local TXT = Color3.fromRGB(244, 247, 245)
-local MUT = Color3.fromRGB(186, 196, 192)
-local SELECTED = Color3.fromRGB(34, 53, 44)
-local HOVER = Color3.fromRGB(36, 40, 42)
+local ACCENT = Color3.fromRGB(94, 226, 162)
+local BG = Color3.fromRGB(11, 13, 12)
+local SIDE = Color3.fromRGB(14, 16, 15)
+local CARD = Color3.fromRGB(20, 23, 21)
+local CTRL = Color3.fromRGB(32, 36, 34)
+local STROKE = Color3.fromRGB(33, 38, 35)
+local TXT = Color3.fromRGB(233, 239, 235)
+local MUT = Color3.fromRGB(135, 148, 141)
+local SELECTED = Color3.fromRGB(18, 35, 27)
+local HOVER = Color3.fromRGB(25, 29, 27)
 -- Legacy Enum.Font spreizt Glyphen, die FontFace-Familien kernen sauber.
 local W = Enum.FontWeight
 local face
@@ -1433,38 +1433,34 @@ local function hover(obj, base, over)
     connect(obj.MouseEnter, function() animate(obj, { BackgroundColor3 = over or CTRL }) end)
     connect(obj.MouseLeave, function() animate(obj, { BackgroundColor3 = base }) end)
 end
+local SHEET_A = "rbxassetid://136559788074258"
+local SHEET_B = "rbxassetid://70895076374895"
+-- Lucide-Sprites statt gezeichneter Linien, sonst krisseln alle Schrägen.
 local ICONS = {
-    Home = {{15,21,15,13},{15,13,14.92,12.62},{14.92,12.62,14.71,12.29},{14.71,12.29,14.38,12.08},{14.38,12.08,14,12},{14,12,10,12},{10,12,9.62,12.08},{9.62,12.08,9.29,12.29},{9.29,12.29,9.08,12.62},{9.08,12.62,9,13},{9,13,9,21},{3,10,3.05,9.57},{3.05,9.57,3.19,9.16},{3.19,9.16,3.41,8.79},{3.41,8.79,3.71,8.47},{3.71,8.47,10.71,2.47},{10.71,2.47,11.31,2.12},{11.31,2.12,12,2},{12,2,12.69,2.12},{12.69,2.12,13.29,2.47},{13.29,2.47,20.29,8.47},{20.29,8.47,20.59,8.79},{20.59,8.79,20.81,9.16},{20.81,9.16,20.95,9.57},{20.95,9.57,21,10},{21,10,21,19},{21,19,20.85,19.77},{20.85,19.77,20.41,20.41},{20.41,20.41,19.77,20.85},{19.77,20.85,19,21},{19,21,5,21},{5,21,4.23,20.85},{4.23,20.85,3.59,20.41},{3.59,20.41,3.15,19.77},{3.15,19.77,3,19},{3,19,3,10}},
-    Farm = {{20,2,20,6},{22,4,18,4},{11.02,2.81,11.14,2.49},{11.14,2.49,11.36,2.23},{11.36,2.23,11.66,2.06},{11.66,2.06,12,2},{12,2,12.34,2.06},{12.34,2.06,12.64,2.23},{12.64,2.23,12.86,2.49},{12.86,2.49,12.98,2.81},{12.98,2.81,14.03,8.37},{14.03,8.37,14.23,8.93},{14.23,8.93,14.59,9.41},{14.59,9.41,15.06,9.77},{15.06,9.77,15.63,9.97},{15.63,9.97,21.19,11.02},{21.19,11.02,21.51,11.14},{21.51,11.14,21.77,11.36},{21.77,11.36,21.94,11.66},{21.94,11.66,22,12},{22,12,21.94,12.34},{21.94,12.34,21.77,12.64},{21.77,12.64,21.51,12.86},{21.51,12.86,21.19,12.98},{21.19,12.98,15.63,14.03},{15.63,14.03,15.06,14.23},{15.06,14.23,14.59,14.59},{14.59,14.59,14.23,15.06},{14.23,15.06,14.03,15.63},{14.03,15.63,12.98,21.19},{12.98,21.19,12.86,21.51},{12.86,21.51,12.64,21.77},{12.64,21.77,12.34,21.94},{12.34,21.94,12,22},{12,22,11.66,21.94},{11.66,21.94,11.36,21.77},{11.36,21.77,11.14,21.51},{11.14,21.51,11.02,21.19},{11.02,21.19,9.97,15.63},{9.97,15.63,9.77,15.06},{9.77,15.06,9.41,14.59},{9.41,14.59,8.93,14.23},{8.93,14.23,8.37,14.03},{8.37,14.03,2.81,12.98},{2.81,12.98,2.49,12.86},{2.49,12.86,2.23,12.64},{2.23,12.64,2.06,12.34},{2.06,12.34,2,12},{2,12,2.06,11.66},{2.06,11.66,2.23,11.36},{2.23,11.36,2.49,11.14},{2.49,11.14,2.81,11.02},{2.81,11.02,8.37,9.97},{8.37,9.97,8.93,9.77},{8.93,9.77,9.41,9.41},{9.41,9.41,9.77,8.93},{9.77,8.93,9.97,8.37},{9.97,8.37,11.02,2.81},{6,20,5.73,21.01},{5.73,21.01,5.01,21.73},{5.01,21.73,4,22},{4,22,2.99,21.73},{2.99,21.73,2.27,21.01},{2.27,21.01,2,20},{2,20,2.27,18.99},{2.27,18.99,2.99,18.27},{2.99,18.27,4,18},{4,18,5.01,18.27},{5.01,18.27,5.73,18.99},{5.73,18.99,6,20}},
-    ["Sell Zone"] = {{7.5,8,7.85,7.85},{7.85,7.85,8,7.5},{8,7.5,7.85,7.15},{7.85,7.15,7.5,7},{7.5,7,7.15,7.15},{7.15,7.15,7,7.5},{7,7.5,7.15,7.85},{7.15,7.85,7.5,8},{12.59,2.59,11.94,2.15},{11.94,2.15,11.17,2},{11.17,2,4,2},{4,2,3.23,2.15},{3.23,2.15,2.59,2.59},{2.59,2.59,2.15,3.23},{2.15,3.23,2,4},{2,4,2,11.17},{2,11.17,2.15,11.94},{2.15,11.94,2.59,12.59},{2.59,12.59,11.29,21.29},{11.29,21.29,12.08,21.81},{12.08,21.81,13,22},{13,22,13.92,21.81},{13.92,21.81,14.71,21.29},{14.71,21.29,21.29,14.71},{21.29,14.71,21.81,13.92},{21.81,13.92,22,13},{22,13,21.81,12.08},{21.81,12.08,21.29,11.29},{21.29,11.29,12.59,2.59},{7.5,8,7.85,7.85},{7.85,7.85,8,7.5},{8,7.5,7.85,7.15},{7.85,7.15,7.5,7},{7.5,7,7.15,7.15},{7.15,7.15,7,7.5},{7,7.5,7.15,7.85},{7.15,7.85,7.5,8}},
-    Shop = {{16,10,15.7,11.53},{15.7,11.53,14.83,12.83},{14.83,12.83,13.53,13.7},{13.53,13.7,12,14},{12,14,10.47,13.7},{10.47,13.7,9.17,12.83},{9.17,12.83,8.3,11.53},{8.3,11.53,8,10},{3.1,6.03,20.9,6.03},{3.4,5.47,3.1,6.03},{3.1,6.03,3,6.67},{3,6.67,3,20},{3,20,3.15,20.77},{3.15,20.77,3.59,21.41},{3.59,21.41,4.23,21.85},{4.23,21.85,5,22},{5,22,19,22},{19,22,19.77,21.85},{19.77,21.85,20.41,21.41},{20.41,21.41,20.85,20.77},{20.85,20.77,21,20},{21,20,21,6.67},{21,6.67,20.9,6.03},{20.9,6.03,20.6,5.47},{20.6,5.47,18.6,2.8},{18.6,2.8,18.28,2.46},{18.28,2.46,17.89,2.21},{17.89,2.21,17.46,2.05},{17.46,2.05,17,2},{17,2,7,2},{7,2,6.54,2.05},{6.54,2.05,6.11,2.21},{6.11,2.21,5.72,2.46},{5.72,2.46,5.4,2.8},{5.4,2.8,3.4,5.47}},
-    Performance = {{10,5,3,5},{12,19,3,19},{14,3,14,7},{16,17,16,21},{21,12,12,12},{21,19,16,19},{21,5,14,5},{8,10,8,14},{8,12,3,12}},
-    Search = {{21,21,16.66,16.66},{19,11,18.71,13.13},{18.71,13.13,17.91,15.04},{17.91,15.04,16.66,16.66},{16.66,16.66,15.04,17.91},{15.04,17.91,13.13,18.71},{13.13,18.71,11,19},{11,19,8.87,18.71},{8.87,18.71,6.96,17.91},{6.96,17.91,5.34,16.66},{5.34,16.66,4.09,15.04},{4.09,15.04,3.29,13.13},{3.29,13.13,3,11},{3,11,3.29,8.87},{3.29,8.87,4.09,6.96},{4.09,6.96,5.34,5.34},{5.34,5.34,6.96,4.09},{6.96,4.09,8.87,3.29},{8.87,3.29,11,3},{11,3,13.13,3.29},{13.13,3.29,15.04,4.09},{15.04,4.09,16.66,5.34},{16.66,5.34,17.91,6.96},{17.91,6.96,18.71,8.87},{18.71,8.87,19,11}},
-    Check = {{20,6,9,17},{9,17,4,12}},
-    Close = {{18,6,6,18},{6,6,18,18}},
-    Plus = {{5,12,19,12},{12,5,12,19}},
-    Minus = {{5,12,19,12}},
-    Chevron = {{6,9,12,15},{12,15,18,9}},
-    Arrow = {{5,12,19,12},{12,19,19,12},{19,12,12,5}},
-    Trees = {{12,2,4,12},{4,12,8,12},{8,12,3,18},{3,18,21,18},{21,18,16,12},{16,12,20,12},{20,12,12,2},{12,18,12,23}},
+    Home = {SHEET_A, 975, 50},
+    Farm = {SHEET_A, 925, 625},
+    Trees = {SHEET_B, 250, 25},
+    ["Sell Zone"] = {SHEET_A, 925, 975},
+    Shop = {SHEET_A, 550, 925},
+    Performance = {SHEET_A, 825, 700},
+    Search = {SHEET_A, 475, 950},
+    Check = {SHEET_A, 325, 300},
+    Close = {SHEET_B, 275, 200},
+    Plus = {SHEET_A, 650, 650},
+    Minus = {SHEET_A, 275, 875},
+    Chevron = {SHEET_A, 100, 525},
+    Arrow = {SHEET_A, 225, 75},
+    Brand = {SHEET_A, 350, 0},
 }
 local function icon(owner, name, pos, color, size)
-    local box = frame(owner, "Icon", UDim2.fromOffset(size or 20, size or 20), pos)
-    for _, line in ipairs(ICONS[name] or ICONS.Home) do
-        local a, b = Vector2.new(line[1], line[2]), Vector2.new(line[3], line[4])
-        local mid, d = (a + b) / 2, b - a
-        local f = frame(box, "Line", UDim2.new(d.Magnitude / 24, 0, 0, math.max(1.5, (size or 20) / 12)),
-            UDim2.fromScale(mid.X / 24, mid.Y / 24), color or MUT)
-        f.AnchorPoint = Vector2.new(0.5, 0.5)
-        f.Rotation = math.deg(math.atan2(d.Y, d.X))
-        round(f, 1)
-    end
-    return box
+    local sprite = ICONS[name] or ICONS.Home
+    return make("ImageLabel", { Name = "Icon", Size = UDim2.fromOffset(size or 20, size or 20),
+        Position = pos, BackgroundTransparency = 1, Image = sprite[1],
+        ImageRectOffset = Vector2.new(sprite[2], sprite[3]), ImageRectSize = Vector2.new(24, 24),
+        ImageColor3 = color or MUT }, owner)
 end
 local function tintIcon(box, color)
-    for _, f in ipairs(box:GetChildren()) do
-        if f:IsA("Frame") then f.BackgroundColor3 = color end
-    end
+    if box and box:IsA("ImageLabel") then box.ImageColor3 = color end
 end
 local function stack(owner, gap)
     return make("UIListLayout", { Padding = UDim.new(0, gap or 8),
@@ -1476,46 +1472,41 @@ local function padding(owner, left, top, right, bottom)
 end
 local gui = make("ScreenGui", { Name = "CarveWoodUI", ResetOnSpawn = false,
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling, DisplayOrder = 50 }, parent)
-local main = frame(gui, "Main", UDim2.fromOffset(900, 604), UDim2.fromScale(0.5, 0.5), BG)
+local main = frame(gui, "Main", UDim2.fromOffset(624, 436), UDim2.fromScale(0.5, 0.5), BG)
 main.AnchorPoint = Vector2.new(0.5, 0.5)
 main.Active = true
 main.ClipsDescendants = true
-local mainCorner = round(main, 12)
+local mainCorner = round(main, 10)
 outline(main)
-local header = frame(main, "Header", UDim2.new(1, 0, 0, 64), nil, SIDE)
-local dragHandle = button(header, "DragHandle", UDim2.new(1, -104, 1, 0))
-local brand = frame(header, "Brand", UDim2.fromOffset(36, 36), UDim2.fromOffset(20, 14), SELECTED)
-round(brand, 9)
-icon(brand, "Trees", UDim2.fromOffset(7, 6), ACCENT, 23)
-local title = text(header, "Title", "CarveWood", UDim2.fromOffset(180, 28), UDim2.fromOffset(68, 19), 22, TXT, true, true)
-local versionChip = frame(header, "VersionChip", UDim2.fromOffset(48, 22), UDim2.fromOffset(218, 23), CARD)
-round(versionChip, 6)
-local version = text(versionChip, "Version", "v9.4", UDim2.new(1, 0, 1, 0), UDim2.new(), 12, MUT, true)
-version.TextXAlignment = Enum.TextXAlignment.Center
-local side = frame(main, "Side", UDim2.new(0, 208, 1, -102), UDim2.fromOffset(0, 64), SIDE)
-local searchWrap = frame(side, "SearchWrap", UDim2.new(1, -28, 0, 42), UDim2.fromOffset(14, 18), CARD)
+local header = frame(main, "Header", UDim2.new(1, 0, 0, 48), nil, SIDE)
+local dragHandle = button(header, "DragHandle", UDim2.new(1, -84, 1, 0))
+local brand = icon(header, "Brand", UDim2.fromOffset(16, 14), ACCENT, 20)
+local title = text(header, "Title", "CarveWood", UDim2.fromOffset(140, 20), UDim2.fromOffset(44, 14), 17, TXT, true, true)
+local version = text(header, "Version", "10.0", UDim2.fromOffset(40, 16), UDim2.fromOffset(140, 16), 12, MUT, true)
+local side = frame(main, "Side", UDim2.new(0, 172, 1, -74), UDim2.fromOffset(0, 48), SIDE)
+local searchWrap = frame(side, "SearchWrap", UDim2.new(1, -20, 0, 32), UDim2.fromOffset(10, 12), CARD)
 round(searchWrap, 6)
 local searchBorder = outline(searchWrap)
-icon(searchWrap, "Search", UDim2.fromOffset(12, 12), MUT, 18)
-local search = make("TextBox", { Name = "Search", Size = UDim2.new(1, -40, 1, 0),
-    Position = UDim2.fromOffset(38, 0), Text = "", PlaceholderText = "Search features",
+icon(searchWrap, "Search", UDim2.fromOffset(9, 8), MUT, 16)
+local search = make("TextBox", { Name = "Search", Size = UDim2.new(1, -32, 1, 0),
+    Position = UDim2.fromOffset(30, 0), Text = "", PlaceholderText = "Search",
     PlaceholderColor3 = MUT, TextColor3 = TXT, BackgroundTransparency = 1,
-    FontFace = face(W.Regular), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left,
+    FontFace = face(W.Regular), TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left,
     ClearTextOnFocus = false }, searchWrap)
 padding(search, 0, 0, 8, 0)
 connect(search.Focused, function() searchBorder.Color = ACCENT end)
 connect(search.FocusLost, function() searchBorder.Color = STROKE end)
-local smallSearch = button(side, "SearchButton", UDim2.fromOffset(44, 44), UDim2.fromOffset(8, 12), CARD)
+local smallSearch = button(side, "SearchButton", UDim2.fromOffset(36, 36), UDim2.fromOffset(8, 10), CARD)
 round(smallSearch, 6)
-icon(smallSearch, "Search", UDim2.fromOffset(12, 12))
+icon(smallSearch, "Search", UDim2.fromOffset(10, 10), MUT, 16)
 smallSearch.Visible = false
-local navHolder = make("ScrollingFrame", { Name = "Navigation", Position = UDim2.fromOffset(12, 78),
-    Size = UDim2.new(1, -24, 1, -144), BackgroundTransparency = 1, BorderSizePixel = 0,
+local navHolder = make("ScrollingFrame", { Name = "Navigation", Position = UDim2.fromOffset(8, 52),
+    Size = UDim2.new(1, -16, 1, -60), BackgroundTransparency = 1, BorderSizePixel = 0,
     ScrollBarThickness = 0, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y }, side)
-stack(navHolder, 4)
-local footer = frame(main, "Footer", UDim2.new(1, 0, 0, 38), UDim2.new(0, 0, 1, -38), SIDE)
+stack(navHolder, 2)
+local footer = frame(main, "Footer", UDim2.new(1, 0, 0, 26), UDim2.new(0, 0, 1, -26), SIDE)
 local footHint = text(footer, "Hint", UIS.TouchEnabled and "Drag the header to move" or "Right Shift to minimize",
-    UDim2.new(1, -40, 1, 0), UDim2.fromOffset(20, 0), 14, MUT)
+    UDim2.new(1, -32, 1, 0), UDim2.fromOffset(16, 0), 12, MUT)
 -- Eingeklappt: eine Pille mit Markenzeichen, Laufstatus und Aufklapp-Pfeil.
 local mini, paintMini
 do
@@ -1523,18 +1514,16 @@ do
     mini.Visible = false
     mini.ZIndex = 6
     mini.Active = true
-    local badge = frame(mini, "Badge", UDim2.fromOffset(34, 34), UDim2.fromOffset(11, 11), SELECTED)
-    round(badge, 10)
-    icon(badge, "Trees", UDim2.fromOffset(6, 6), ACCENT, 22)
-    text(mini, "Title", "CarveWood", UDim2.fromOffset(150, 20), UDim2.fromOffset(55, 8), 16, TXT, true, true)
-    local dot = frame(mini, "Dot", UDim2.fromOffset(7, 7), UDim2.fromOffset(56, 33), MUT)
-    round(dot, 4)
-    local status = text(mini, "Status", "Idle", UDim2.new(1, -130, 0, 18), UDim2.fromOffset(69, 28), 13, MUT)
-    local expand = button(mini, "Expand", UDim2.fromOffset(38, 38), UDim2.new(1, -9, 0.5, 0), CARD)
+    icon(mini, "Brand", UDim2.fromOffset(14, 15), ACCENT, 18)
+    text(mini, "Title", "CarveWood", UDim2.fromOffset(130, 17), UDim2.fromOffset(40, 8), 14, TXT, true, true)
+    local dot = frame(mini, "Dot", UDim2.fromOffset(6, 6), UDim2.fromOffset(41, 29), MUT)
+    round(dot, 3)
+    local status = text(mini, "Status", "Idle", UDim2.new(1, -108, 0, 15), UDim2.fromOffset(52, 25), 11, MUT)
+    local expand = button(mini, "Expand", UDim2.fromOffset(30, 30), UDim2.new(1, -8, 0.5, 0), CARD)
     expand.AnchorPoint = Vector2.new(1, 0.5)
     expand.ZIndex = 7
-    round(expand, 12)
-    local expandIcon = icon(expand, "Chevron", UDim2.fromOffset(9, 10), MUT, 20)
+    round(expand, 9)
+    local expandIcon = icon(expand, "Chevron", UDim2.fromOffset(7, 7), MUT, 16)
     expandIcon.Rotation = 180
     connect(expand.MouseEnter, function()
         animate(expand, { BackgroundColor3 = SELECTED }, 0.14)
@@ -1559,10 +1548,10 @@ do
         end
     end
 end
-local content = frame(main, "Content", UDim2.new(1, -208, 1, -102), UDim2.fromOffset(208, 64))
-local pageHead = frame(content, "PageHeader", UDim2.new(1, -48, 0, 96), UDim2.fromOffset(24, 0))
-local pageTitle = text(pageHead, "Title", "Overview", UDim2.new(1, 0, 0, 38), UDim2.fromOffset(0, 24), 29, TXT, true, true)
-local pageDesc = text(pageHead, "Description", "", UDim2.new(1, 0, 0, 22), UDim2.fromOffset(0, 66), 15, MUT)
+local content = frame(main, "Content", UDim2.new(1, -172, 1, -74), UDim2.fromOffset(172, 48))
+local pageHead = frame(content, "PageHeader", UDim2.new(1, -32, 0, 56), UDim2.fromOffset(16, 0))
+local pageTitle = text(pageHead, "Title", "Overview", UDim2.new(1, 0, 0, 26), UDim2.fromOffset(0, 12), 20, TXT, true, true)
+local pageDesc = text(pageHead, "Description", "", UDim2.new(1, 0, 0, 18), UDim2.fromOffset(0, 36), 12, MUT)
 local PAGE_INFO = {
     {"Home", "Overview", "Your session at a glance."},
     {"Farm", "Seed farming", "Reroll seeds and collect what is ready."},
@@ -1572,12 +1561,12 @@ local PAGE_INFO = {
     {"Performance", "Performance", "Keep the game focused on what matters."},
 }
 local function makePage(name)
-    local sc = make("ScrollingFrame", { Name = "Page_" .. name, Position = UDim2.fromOffset(0, 96),
-        Size = UDim2.new(1, 0, 1, -96), BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 3, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
+    local sc = make("ScrollingFrame", { Name = "Page_" .. name, Position = UDim2.fromOffset(0, 56),
+        Size = UDim2.new(1, 0, 1, -56), BackgroundTransparency = 1, BorderSizePixel = 0,
+        ScrollBarThickness = 2, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
         AutomaticCanvasSize = Enum.AutomaticSize.Y, Visible = false }, content)
-    padding(sc, 24, 8, 24, 24)
-    stack(sc, 12)
+    padding(sc, 16, 4, 16, 16)
+    stack(sc, 6)
     pages[name] = sc
     return sc
 end
@@ -1587,7 +1576,7 @@ local searchPage = makePage("Search")
 local noResults = text(searchPage, "NoResults", "No matching features.", UDim2.new(1, 0, 0, 48), UDim2.new(), 14, MUT)
 noResults.Visible = false
 -- Ein Marker für alle Einträge, er fährt zum aktiven Punkt statt zu springen.
-local navSlider = frame(side, "NavSlider", UDim2.fromOffset(3, 20), UDim2.fromOffset(12, 90), ACCENT)
+local navSlider = frame(side, "NavSlider", UDim2.fromOffset(2, 16), UDim2.fromOffset(6, 60), ACCENT)
 round(navSlider, 2)
 navSlider.ZIndex = 3
 navSlider.Visible = false
@@ -1604,11 +1593,11 @@ local function paintNav()
         navSlider.Visible = false
         return
     end
-    local y = active.AbsolutePosition.Y - side.AbsolutePosition.Y + 15
+    local y = active.AbsolutePosition.Y - side.AbsolutePosition.Y + 10
     if navSlider.Visible then
-        animate(navSlider, { Position = UDim2.fromOffset(12, y) })
+        animate(navSlider, { Position = UDim2.fromOffset(6, y) })
     else
-        navSlider.Position = UDim2.fromOffset(12, y)
+        navSlider.Position = UDim2.fromOffset(6, y)
         navSlider.Visible = true
     end
 end
@@ -1617,8 +1606,8 @@ showPage = function()
         local on = name == currentPage
         pg.Visible = on
         if on then
-            pg.Position = UDim2.fromOffset(0, 108)
-            animate(pg, { Position = UDim2.fromOffset(0, 96) }, 0.22)
+            pg.Position = UDim2.fromOffset(0, 66)
+            animate(pg, { Position = UDim2.fromOffset(0, 56) }, 0.22)
         end
     end
     for _, info in ipairs(PAGE_INFO) do
@@ -1639,11 +1628,11 @@ local function navigate(name)
 end
 local function navItem(info, order)
     local name = info[1]
-    local b = button(navHolder, "Nav_" .. name, UDim2.new(1, 0, 0, 50), nil, SIDE)
+    local b = button(navHolder, "Nav_" .. name, UDim2.new(1, 0, 0, 36), nil, SIDE)
     b.LayoutOrder = order
-    round(b, 8)
-    icon(b, name, UDim2.fromOffset(13, 15))
-    text(b, "Label", name, UDim2.new(1, -56, 1, 0), UDim2.fromOffset(47, 0), 17, MUT, true)
+    round(b, 7)
+    icon(b, name, UDim2.fromOffset(10, 9), MUT, 18)
+    text(b, "Label", name, UDim2.new(1, -42, 1, 0), UDim2.fromOffset(36, 0), 14, MUT, true)
     navBtns[name] = b
     connect(b.Activated, function() navigate(name) end)
     connect(b.MouseEnter, function() if name ~= currentPage then animate(b, { BackgroundColor3 = CARD }) end end)
@@ -1651,29 +1640,29 @@ local function navItem(info, order)
 end
 
 local function section(page, value, order)
-    local row = frame(page, "Section", UDim2.new(1, 0, 0, 30))
+    local row = frame(page, "Section", UDim2.new(1, 0, 0, 22))
     row.LayoutOrder = order
-    text(row, "Label", value, UDim2.new(1, 0, 1, 0), UDim2.new(), 15, MUT, true)
+    text(row, "Label", value, UDim2.new(1, 0, 1, 0), UDim2.new(), 12, MUT, true)
     return row
 end
 
 local function card(page, pageName, value, desc, order, h)
-    local row = frame(page, value:gsub("%W", ""), UDim2.new(1, 0, 0, h or 88), nil, CARD)
+    local row = frame(page, value:gsub("%W", ""), UDim2.new(1, 0, 0, h or 56), nil, CARD)
     row.LayoutOrder = order
     row.ClipsDescendants = true
-    round(row, 10)
+    round(row, 8)
     outline(row)
-    local t = text(row, "Heading", value, UDim2.new(1, -158, 0, 28), UDim2.fromOffset(20, 16), 19, TXT, true)
-    local d = text(row, "Description", desc, UDim2.new(1, -158, 0, 42), UDim2.fromOffset(20, 48), 16, MUT)
-    d.LineHeight = 1.18
+    local t = text(row, "Heading", value, UDim2.new(1, -120, 0, 20), UDim2.fromOffset(14, 9), 14, TXT, true)
+    local d = text(row, "Description", desc, UDim2.new(1, -120, 0, 26), UDim2.fromOffset(14, 28), 12, MUT)
+    d.LineHeight = 1.12
     d.TextWrapped = true
     d.TextTruncate = Enum.TextTruncate.None
     d.TextYAlignment = Enum.TextYAlignment.Top
     local function fit()
-        local narrow = row.AbsoluteSize.X < 440
-        local height = narrow and 148 or (h or 96)
-        t.Size = UDim2.new(1, narrow and -36 or -158, 0, 28)
-        d.Size = UDim2.new(1, narrow and -36 or -158, 0, 42)
+        local narrow = row.AbsoluteSize.X < 360
+        local height = narrow and 92 or (h or 56)
+        t.Size = UDim2.new(1, narrow and -28 or -120, 0, 20)
+        d.Size = UDim2.new(1, narrow and -28 or -120, 0, 26)
         if not row:FindFirstChild("Body") then row.Size = UDim2.new(1, 0, 0, height) end
         row:SetAttribute("HeaderHeight", height)
     end
@@ -1691,14 +1680,14 @@ local function card(page, pageName, value, desc, order, h)
 end
 
 local function toggle(row, get, set, rightInset)
-    local b = button(row, "Toggle", UDim2.fromOffset(92, 48), UDim2.new(1, rightInset or -20, 0.5, 0))
+    local b = button(row, "Toggle", UDim2.fromOffset(70, 36), UDim2.new(1, rightInset or -14, 0.5, 0))
     b.AnchorPoint = Vector2.new(1, 0.5)
     b.ZIndex = 3
-    local state = text(b, "State", "", UDim2.fromOffset(40, 48), UDim2.new(), 14, MUT, true)
-    local track = frame(b, "Track", UDim2.fromOffset(46, 26), UDim2.fromOffset(44, 11), CTRL)
-    round(track, 13)
-    local knob = frame(track, "Knob", UDim2.fromOffset(20, 20), UDim2.fromOffset(3, 3), MUT)
-    round(knob, 10)
+    local state = text(b, "State", "", UDim2.fromOffset(30, 36), UDim2.new(), 12, MUT, true)
+    local track = frame(b, "Track", UDim2.fromOffset(36, 20), UDim2.fromOffset(34, 8), CTRL)
+    round(track, 10)
+    local knob = frame(track, "Knob", UDim2.fromOffset(14, 14), UDim2.fromOffset(3, 3), MUT)
+    round(knob, 7)
     local previous
     local function paint()
         local on = get() == true
@@ -1708,12 +1697,12 @@ local function toggle(row, get, set, rightInset)
         state.Text = on and "On" or "Off"
         state.TextColor3 = on and ACCENT or MUT
         animate(track, { BackgroundColor3 = on and ACCENT or CTRL }, 0.18)
-        animate(knob, { Position = UDim2.fromOffset(on and 23 or 3, 3),
+        animate(knob, { Position = UDim2.fromOffset(on and 19 or 3, 3),
             BackgroundColor3 = on and BG or MUT }, 0.24)
     end
     local function fit()
-        local stacked = row.AbsoluteSize.X < 440 and row.AbsoluteSize.Y >= 120
-        b.Position = stacked and UDim2.new(1, rightInset or -20, 1, -34) or UDim2.new(1, rightInset or -20, 0.5, 0)
+        local stacked = row.AbsoluteSize.X < 360 and row.AbsoluteSize.Y >= 80
+        b.Position = stacked and UDim2.new(1, rightInset or -14, 1, -26) or UDim2.new(1, rightInset or -14, 0.5, 0)
     end
     connect(row:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
@@ -1747,29 +1736,29 @@ end
 -- Panel: Kopfzeile mit Schalter und Pfeil, darunter die aufklappbaren Zeilen.
 local function panel(page, pageName, value, desc, order, h)
     local row = card(page, pageName, value, desc, order, h)
-    local head = frame(row, "Head", UDim2.new(1, 0, 0, h or 96))
-    local body = frame(row, "Body", UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, h or 96))
+    local head = frame(row, "Head", UDim2.new(1, 0, 0, h or 56))
+    local body = frame(row, "Body", UDim2.new(1, 0, 0, 0), UDim2.fromOffset(0, h or 56))
     body.AutomaticSize = Enum.AutomaticSize.Y
-    stack(body, 4)
-    padding(body, 20, 2, 20, 16)
+    stack(body, 2)
+    padding(body, 14, 2, 14, 10)
     local divider = frame(body, "Divider", UDim2.new(1, 0, 0, 1), nil, STROKE)
     divider.BackgroundTransparency = 0.3
     divider.LayoutOrder = -10
-    local chevronBtn = button(head, "Expand", UDim2.fromOffset(36, 48), UDim2.new(1, -24, 0.5, 0))
+    local chevronBtn = button(head, "Expand", UDim2.fromOffset(28, 36), UDim2.new(1, -16, 0.5, 0))
     chevronBtn.AnchorPoint = Vector2.new(1, 0.5)
     chevronBtn.ZIndex = 4
-    local chevron = icon(chevronBtn, "Chevron", UDim2.fromOffset(8, 15), MUT, 20)
-    local hit = button(head, "Hit", UDim2.new(1, -184, 1, 0))
+    local chevron = icon(chevronBtn, "Chevron", UDim2.fromOffset(6, 10), MUT, 16)
+    local hit = button(head, "Hit", UDim2.new(1, -140, 1, 0))
     hit.ZIndex = 3
     local open, ready = true, false
     local function fit(instant)
-        local hh = row:GetAttribute("HeaderHeight") or h or 96
+        local hh = row:GetAttribute("HeaderHeight") or h or 56
         head.Size = UDim2.new(1, 0, 0, hh)
         body.Position = UDim2.fromOffset(0, hh)
         local target = UDim2.new(1, 0, 0, hh + (open and body.AbsoluteSize.Y or 0))
         if instant then row.Size = target else animate(row, { Size = target }, 0.22) end
-        local narrow = row.AbsoluteSize.X < 480
-        chevronBtn.Position = narrow and UDim2.new(1, -20, 1, -34) or UDim2.new(1, -20, 0.5, 0)
+        local narrow = row.AbsoluteSize.X < 380
+        chevronBtn.Position = narrow and UDim2.new(1, -14, 1, -26) or UDim2.new(1, -14, 0.5, 0)
     end
     local function setOpen(v, instant)
         open = v
@@ -1797,9 +1786,9 @@ end
 
 -- Zeile im Panel-Body, registriert für die Suche.
 local function subRow(body, pageName, value, rootCard, order)
-    local r = frame(body, value:gsub("%W", ""), UDim2.new(1, 0, 0, 66))
+    local r = frame(body, value:gsub("%W", ""), UDim2.new(1, 0, 0, 42))
     r.LayoutOrder = order
-    text(r, "Label", value, UDim2.new(1, -140, 1, 0), UDim2.new(), 17, TXT)
+    text(r, "Label", value, UDim2.new(1, -110, 1, 0), UDim2.new(), 13, TXT)
     allCards[#allCards + 1] = { frame = r, page = pageName, title = value,
         text = string.lower(pageName .. " " .. value), root = rootCard.frame, open = rootCard.setOpen }
     return r
@@ -1808,11 +1797,11 @@ end
 local function subToggle(body, pageName, value, rootCard, order, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
     local function fit()
-        local narrow = r.AbsoluteSize.X < 380
-        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 66)
-        r.Label.Size = UDim2.new(1, narrow and -36 or -140, 0, narrow and 44 or 66)
+        local narrow = r.AbsoluteSize.X < 320
+        r.Size = UDim2.new(1, 0, 0, narrow and 72 or 42)
+        r.Label.Size = UDim2.new(1, narrow and -28 or -110, 0, narrow and 32 or 42)
         local t = r:FindFirstChild("Toggle")
-        if t then t.Position = narrow and UDim2.new(1, -2, 1, -34) or UDim2.new(1, -2, 0.5, 0) end
+        if t then t.Position = narrow and UDim2.new(1, -2, 1, -24) or UDim2.new(1, -2, 0.5, 0) end
     end
     local result = toggle(r, get, set, -2)
     connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
@@ -1839,14 +1828,14 @@ end
 -- Dropdown: Zeile mit Auswahlfeld, Liste klappt darunter auf.
 local function subDropdown(body, pageName, value, rootCard, order, options, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
-    local b = button(r, "Dropdown", UDim2.fromOffset(236, 48), UDim2.new(1, -4, 0.5, 0), SIDE)
+    local b = button(r, "Dropdown", UDim2.fromOffset(188, 34), UDim2.new(1, -2, 0.5, 0), SIDE)
     b.AnchorPoint = Vector2.new(1, 0.5)
     round(b, 8)
     local border = outline(b)
-    local selected = text(b, "Value", "", UDim2.new(1, -54, 0, 22), UDim2.fromOffset(14, 5), 15, TXT, true)
-    local rarity = text(b, "Rarity", "", UDim2.new(1, -54, 0, 16), UDim2.fromOffset(14, 27), 12, MUT)
-    local arrow = icon(b, "Chevron", UDim2.new(1, -32, 0.5, -9), MUT, 18)
-    local listHeight = math.min(300, 72 + #options * 56)
+    local selected = text(b, "Value", "", UDim2.new(1, -42, 0, 17), UDim2.fromOffset(11, 3), 13, TXT, true)
+    local rarity = text(b, "Rarity", "", UDim2.new(1, -42, 0, 13), UDim2.fromOffset(11, 19), 11, MUT)
+    local arrow = icon(b, "Chevron", UDim2.new(1, -26, 0.5, -7), MUT, 14)
+    local listHeight = math.min(224, 52 + #options * 40)
     local list = frame(body, "Options_" .. order, UDim2.new(1, 0, 0, listHeight), nil, SIDE)
     list.LayoutOrder = order + 1
     list.Visible = false
@@ -1855,17 +1844,17 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
     round(list, 8)
     outline(list)
     DD2_LISTS[#DD2_LISTS + 1] = list
-    local filterWrap = frame(list, "Filter", UDim2.new(1, -20, 0, 44), UDim2.fromOffset(10, 10), CARD)
+    local filterWrap = frame(list, "Filter", UDim2.new(1, -16, 0, 30), UDim2.fromOffset(8, 8), CARD)
     round(filterWrap, 6)
-    icon(filterWrap, "Search", UDim2.fromOffset(12, 13), MUT, 18)
-    local filter = make("TextBox", { Name = "Search", Size = UDim2.new(1, -44, 1, 0),
-        Position = UDim2.fromOffset(38, 0), Text = "", PlaceholderText = "Search a tree or rarity",
+    icon(filterWrap, "Search", UDim2.fromOffset(9, 8), MUT, 14)
+    local filter = make("TextBox", { Name = "Search", Size = UDim2.new(1, -34, 1, 0),
+        Position = UDim2.fromOffset(28, 0), Text = "", PlaceholderText = "Search a tree or rarity",
         PlaceholderColor3 = MUT, TextColor3 = TXT, BackgroundTransparency = 1,
         ClearTextOnFocus = false, FontFace = face(W.Regular), TextSize = 15,
         TextXAlignment = Enum.TextXAlignment.Left }, filterWrap)
-    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(10, 62),
-        Size = UDim2.new(1, -20, 1, -72), BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 3, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
+    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(8, 44),
+        Size = UDim2.new(1, -16, 1, -52), BackgroundTransparency = 1, BorderSizePixel = 0,
+        ScrollBarThickness = 2, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
         AutomaticCanvasSize = Enum.AutomaticSize.Y }, list)
     stack(sc, 2)
     padding(sc, 2, 1, 7, 1)
@@ -1888,14 +1877,14 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
         end
     end
     for i, opt in ipairs(options) do
-        local ob = button(sc, "Option_" .. opt.value, UDim2.new(1, 0, 0, 54), nil, SIDE)
+        local ob = button(sc, "Option_" .. opt.value, UDim2.new(1, 0, 0, 38), nil, SIDE)
         ob.LayoutOrder = i
         round(ob, 6)
-        local dot = frame(ob, "RarityDot", UDim2.fromOffset(5, 5), UDim2.fromOffset(12, 24), RARITY_COLORS[opt.rarity] or MUT)
-        round(dot, 3)
-        text(ob, "Name", opt.value, UDim2.new(1, -104, 0, 22), UDim2.fromOffset(30, 6), 15, TXT, true)
-        text(ob, "Rarity", opt.rarity, UDim2.new(1, -104, 0, 18), UDim2.fromOffset(30, 29), 12, MUT)
-        local mark = text(ob, "SelectionMark", "Selected", UDim2.fromOffset(72, 54), UDim2.new(1, -84, 0, 0), 12, ACCENT)
+        local dot = frame(ob, "RarityDot", UDim2.fromOffset(4, 4), UDim2.fromOffset(10, 17), RARITY_COLORS[opt.rarity] or MUT)
+        round(dot, 2)
+        text(ob, "Name", opt.value, UDim2.new(1, -84, 0, 17), UDim2.fromOffset(24, 4), 13, TXT, true)
+        text(ob, "Rarity", opt.rarity, UDim2.new(1, -84, 0, 14), UDim2.fromOffset(24, 21), 11, MUT)
+        local mark = text(ob, "SelectionMark", "Selected", UDim2.fromOffset(64, 38), UDim2.new(1, -72, 0, 0), 11, ACCENT)
         mark.TextXAlignment = Enum.TextXAlignment.Right
         optionButtons[i] = ob
         connect(ob.Activated, function() set(opt.value) paint() filter:ReleaseFocus() setList(false) end)
@@ -1937,11 +1926,11 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
         end
     end)
     local function fit()
-        local narrow = r.AbsoluteSize.X < 460
-        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
-        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
-        b.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
-        b.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+        local narrow = r.AbsoluteSize.X < 340
+        r.Size = UDim2.new(1, 0, 0, narrow and 74 or 46)
+        r.Label.Size = UDim2.new(1, narrow and -24 or -200, 0, narrow and 30 or 46)
+        b.Size = narrow and UDim2.new(1, -16, 0, 34) or UDim2.fromOffset(188, 34)
+        b.Position = narrow and UDim2.new(1, -2, 1, -26) or UDim2.new(1, -2, 0.5, 0)
     end
     connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
@@ -1953,14 +1942,14 @@ end
 -- Dropdown mit Mehrfachauswahl: Liste bleibt offen, jede Zeile hakt sich einzeln an.
 local function subMulti(body, pageName, value, rootCard, order, options, isOn, setOn)
     local r = subRow(body, pageName, value, rootCard, order)
-    local b = button(r, "Dropdown", UDim2.fromOffset(236, 48), UDim2.new(1, -4, 0.5, 0), SIDE)
+    local b = button(r, "Dropdown", UDim2.fromOffset(188, 34), UDim2.new(1, -2, 0.5, 0), SIDE)
     b.AnchorPoint = Vector2.new(1, 0.5)
     round(b, 8)
     local border = outline(b)
-    local selected = text(b, "Value", "", UDim2.new(1, -54, 0, 22), UDim2.fromOffset(14, 5), 15, TXT, true)
-    local summary = text(b, "Summary", "", UDim2.new(1, -54, 0, 16), UDim2.fromOffset(14, 27), 12, MUT)
-    local arrow = icon(b, "Chevron", UDim2.new(1, -32, 0.5, -9), MUT, 18)
-    local listHeight = math.min(300, 20 + #options * 56)
+    local selected = text(b, "Value", "", UDim2.new(1, -42, 0, 17), UDim2.fromOffset(11, 3), 13, TXT, true)
+    local summary = text(b, "Summary", "", UDim2.new(1, -42, 0, 13), UDim2.fromOffset(11, 19), 11, MUT)
+    local arrow = icon(b, "Chevron", UDim2.new(1, -26, 0.5, -7), MUT, 14)
+    local listHeight = math.min(224, 14 + #options * 40)
     local list = frame(body, "Picks_" .. order, UDim2.new(1, 0, 0, listHeight), nil, SIDE)
     list.LayoutOrder = order + 1
     list.Visible = false
@@ -1969,9 +1958,9 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
     round(list, 8)
     outline(list)
     DD2_LISTS[#DD2_LISTS + 1] = list
-    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(10, 10),
-        Size = UDim2.new(1, -20, 1, -20), BackgroundTransparency = 1, BorderSizePixel = 0,
-        ScrollBarThickness = 3, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
+    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(8, 7),
+        Size = UDim2.new(1, -16, 1, -14), BackgroundTransparency = 1, BorderSizePixel = 0,
+        ScrollBarThickness = 2, ScrollBarImageColor3 = STROKE, CanvasSize = UDim2.new(),
         AutomaticCanvasSize = Enum.AutomaticSize.Y }, list)
     stack(sc, 2)
     padding(sc, 2, 1, 7, 1)
@@ -1998,18 +1987,17 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
         end
     end
     for i, opt in ipairs(options) do
-        local ob = button(sc, "Pick_" .. opt.value, UDim2.new(1, 0, 0, 54), nil, SIDE)
+        local ob = button(sc, "Pick_" .. opt.value, UDim2.new(1, 0, 0, 38), nil, SIDE)
         ob.LayoutOrder = i
         round(ob, 6)
-        local box = frame(ob, "Box", UDim2.fromOffset(20, 20), UDim2.fromOffset(12, 17), SIDE)
-        round(box, 5)
+        local box = frame(ob, "Box", UDim2.fromOffset(16, 16), UDim2.fromOffset(10, 11), SIDE)
+        round(box, 4)
         local boxStroke = outline(box)
         boxStroke.Name = "BoxStroke"
-        local mark = icon(box, "Check", UDim2.fromOffset(2, 2), BG, 16)
+        local mark = icon(box, "Check", UDim2.fromOffset(2, 2), BG, 12)
         mark.Name = "Mark"
-        mark.Rotation = 0
-        text(ob, "Name", opt.value, UDim2.new(1, -104, 0, 22), UDim2.fromOffset(44, 6), 15, TXT, true)
-        text(ob, "Note", opt.note or "", UDim2.new(1, -104, 0, 18), UDim2.fromOffset(44, 29), 12, MUT)
+        text(ob, "Name", opt.value, UDim2.new(1, -80, 0, 17), UDim2.fromOffset(34, 3), 13, TXT, true)
+        text(ob, "Note", opt.note or "", UDim2.new(1, -80, 0, 14), UDim2.fromOffset(34, 20), 11, MUT)
         optionButtons[i] = ob
         connect(ob.Activated, function() setOn(opt.value, not isOn(opt.value)) paint() end)
         connect(ob.MouseEnter, function() if not isOn(opt.value) then animate(ob, { BackgroundColor3 = HOVER }, 0.12) end end)
@@ -2037,11 +2025,11 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
         end
     end)
     local function fit()
-        local narrow = r.AbsoluteSize.X < 460
-        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
-        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
-        b.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
-        b.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+        local narrow = r.AbsoluteSize.X < 340
+        r.Size = UDim2.new(1, 0, 0, narrow and 74 or 46)
+        r.Label.Size = UDim2.new(1, narrow and -24 or -200, 0, narrow and 30 or 46)
+        b.Size = narrow and UDim2.new(1, -16, 0, 34) or UDim2.fromOffset(188, 34)
+        b.Position = narrow and UDim2.new(1, -2, 1, -26) or UDim2.new(1, -2, 0.5, 0)
     end
     connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
@@ -2051,7 +2039,7 @@ end
 
 local function subChoice(body, pageName, value, rootCard, order, options, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
-    local wrap = frame(r, "Choice", UDim2.fromOffset(236, 48), UDim2.new(1, -4, 0.5, 0), SIDE)
+    local wrap = frame(r, "Choice", UDim2.fromOffset(188, 34), UDim2.new(1, -2, 0.5, 0), SIDE)
     wrap.AnchorPoint = Vector2.new(1, 0.5)
     round(wrap, 8)
     outline(wrap)
@@ -2064,19 +2052,19 @@ local function subChoice(body, pageName, value, rootCard, order, options, get, s
         end
     end
     for i, opt in ipairs(options) do
-        local b = button(wrap, "Choice_" .. i, UDim2.new(0.5, -6, 1, -8), UDim2.new((i - 1) * 0.5, 4, 0, 4), SIDE)
-        round(b, 6)
-        local l = text(b, "Label", opt.label or opt.value, UDim2.new(1, 0, 1, 0), UDim2.new(), 14, MUT, true)
+        local b = button(wrap, "Choice_" .. i, UDim2.new(0.5, -5, 1, -6), UDim2.new((i - 1) * 0.5, 3, 0, 3), SIDE)
+        round(b, 5)
+        local l = text(b, "Label", opt.label or opt.value, UDim2.new(1, 0, 1, 0), UDim2.new(), 12, MUT, true)
         l.TextXAlignment = Enum.TextXAlignment.Center
         entries[#entries + 1] = { value = opt.value, button = b, label = l }
         connect(b.Activated, function() set(opt.value) paint() end)
     end
     local function fit()
-        local narrow = r.AbsoluteSize.X < 460
-        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
-        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
-        wrap.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
-        wrap.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+        local narrow = r.AbsoluteSize.X < 340
+        r.Size = UDim2.new(1, 0, 0, narrow and 74 or 46)
+        r.Label.Size = UDim2.new(1, narrow and -24 or -200, 0, narrow and 30 or 46)
+        wrap.Size = narrow and UDim2.new(1, -16, 0, 34) or UDim2.fromOffset(188, 34)
+        wrap.Position = narrow and UDim2.new(1, -2, 1, -26) or UDim2.new(1, -2, 0.5, 0)
     end
     connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
@@ -2092,11 +2080,11 @@ local function subNumber(body, pageName, value, rootCard, order, get, set)
         Position = UDim2.new(1, -4, 0.5, 0), AnchorPoint = Vector2.new(1, 0.5),
         BackgroundColor3 = SIDE, BorderSizePixel = 0, Text = tostring(get() or 0),
         PlaceholderText = "0", PlaceholderColor3 = MUT, TextColor3 = TXT,
-        FontFace = face(W.SemiBold), TextSize = 15, ClearTextOnFocus = false,
+        FontFace = face(W.SemiBold), TextSize = 13, ClearTextOnFocus = false,
         TextXAlignment = Enum.TextXAlignment.Left }, r)
     round(box, 8)
     local border = outline(box)
-    padding(box, 14, 0, 14, 0)
+    padding(box, 11, 0, 11, 0)
     connect(box.Focused, function() border.Color = ACCENT end)
     connect(box.FocusLost, function()
         border.Color = STROKE
@@ -2105,11 +2093,11 @@ local function subNumber(body, pageName, value, rootCard, order, get, set)
         box.Text = tostring(n)
     end)
     local function fit()
-        local narrow = r.AbsoluteSize.X < 460
-        r.Size = UDim2.new(1, 0, 0, narrow and 108 or 72)
-        r.Label.Size = UDim2.new(1, narrow and -32 or -268, 0, narrow and 40 or 72)
-        box.Size = narrow and UDim2.new(1, -20, 0, 48) or UDim2.fromOffset(236, 48)
-        box.Position = narrow and UDim2.new(1, -4, 1, -34) or UDim2.new(1, -4, 0.5, 0)
+        local narrow = r.AbsoluteSize.X < 340
+        r.Size = UDim2.new(1, 0, 0, narrow and 74 or 46)
+        r.Label.Size = UDim2.new(1, narrow and -24 or -200, 0, narrow and 30 or 46)
+        box.Size = narrow and UDim2.new(1, -16, 0, 34) or UDim2.fromOffset(188, 34)
+        box.Position = narrow and UDim2.new(1, -2, 1, -26) or UDim2.new(1, -2, 0.5, 0)
     end
     connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
@@ -2118,28 +2106,28 @@ end
 
 section(homePage, "This session", 1)
 do
-    local strip = frame(homePage, "Stats", UDim2.new(1, 0, 0, 96), nil, CARD)
+    local strip = frame(homePage, "Stats", UDim2.new(1, 0, 0, 62), nil, CARD)
     strip.LayoutOrder = 2
-    round(strip, 10)
+    round(strip, 8)
     outline(strip)
     local cells = {}
-    for i, d in ipairs({{"Runtime", "CWValTime", "0s"}, {"Seed rerolls", "CWValRolls", "0"},
-        {"Trees chopped", "CWValTrees", "0"}, {"Items bought", "CWValBuys", "0"}}) do
+    for i, d in ipairs({{"Runtime", "CWValTime", "0s"}, {"Rerolls", "CWValRolls", "0"},
+        {"Chopped", "CWValTrees", "0"}, {"Bought", "CWValBuys", "0"}}) do
         local cell = frame(strip, d[2] .. "Cell", UDim2.new(0.25, 0, 1, 0), UDim2.new((i - 1) / 4, 0, 0, 0))
-        text(cell, "Label", d[1], UDim2.new(1, -24, 0, 20), UDim2.fromOffset(20, 18), 14, MUT)
-        text(cell, d[2], d[3], UDim2.new(1, -24, 0, 34), UDim2.fromOffset(20, 42), 27, i == 1 and ACCENT or TXT, true, true)
+        text(cell, "Label", d[1], UDim2.new(1, -18, 0, 14), UDim2.fromOffset(14, 12), 11, MUT)
+        text(cell, d[2], d[3], UDim2.new(1, -18, 0, 24), UDim2.fromOffset(14, 28), 18, i == 1 and ACCENT or TXT, true, true)
         if i > 1 then
-            local sep = frame(cell, "Sep", UDim2.fromOffset(1, 48), UDim2.fromOffset(0, 24), STROKE)
-            sep.BackgroundTransparency = 0.35
+            local sep = frame(cell, "Sep", UDim2.fromOffset(1, 30), UDim2.fromOffset(0, 16), STROKE)
+            sep.BackgroundTransparency = 0.4
         end
         cells[i] = cell
     end
     local function fit()
-        local narrow = strip.AbsoluteSize.X < 520
-        strip.Size = UDim2.new(1, 0, 0, narrow and 192 or 96)
+        local narrow = strip.AbsoluteSize.X < 400
+        strip.Size = UDim2.new(1, 0, 0, narrow and 124 or 62)
         for i, cell in ipairs(cells) do
-            cell.Size = narrow and UDim2.new(0.5, 0, 0, 96) or UDim2.new(0.25, 0, 1, 0)
-            cell.Position = narrow and UDim2.new(((i - 1) % 2) * 0.5, 0, 0, math.floor((i - 1) / 2) * 96)
+            cell.Size = narrow and UDim2.new(0.5, 0, 0, 62) or UDim2.new(0.25, 0, 1, 0)
+            cell.Position = narrow and UDim2.new(((i - 1) % 2) * 0.5, 0, 0, math.floor((i - 1) / 2) * 62)
                 or UDim2.new((i - 1) / 4, 0, 0, 0)
             local sep = cell:FindFirstChild("Sep")
             if sep then sep.Visible = not narrow or i % 2 == 0 end
@@ -2152,30 +2140,29 @@ section(homePage, "Workflows", 5)
 for i, data in ipairs({{"Farm", "Seed farming", "Rerolls, frenzy and collection", "CW_Farm"},
     {"Trees", "Tree management", "Planting, priorities and fertilizer", "CW_Trees"},
     {"Shop", "Gem store", "Buying picked items and restocking", "CW_Shop"}}) do
-    local row = button(homePage, "Open_" .. data[1], UDim2.new(1, 0, 0, 112), nil, CARD)
+    local row = button(homePage, "Open_" .. data[1], UDim2.new(1, 0, 0, 52), nil, CARD)
     row.LayoutOrder = i + 5
-    round(row, 10)
+    round(row, 8)
     outline(row)
-    local badge = frame(row, "Badge", UDim2.fromOffset(44, 44), UDim2.fromOffset(20, 24), SIDE)
-    round(badge, 10)
-    icon(badge, data[1], UDim2.fromOffset(10, 10), ACCENT)
-    text(row, "Title", data[2], UDim2.new(1, -140, 0, 26), UDim2.fromOffset(78, 20), 18, TXT, true)
-    local desc = text(row, "Description", data[3], UDim2.new(1, -140, 0, 24), UDim2.fromOffset(78, 48), 15, MUT)
-    local state = text(row, "State", "", UDim2.new(1, -140, 0, 22), UDim2.fromOffset(78, 76), 15, MUT)
-    icon(row, "Arrow", UDim2.new(1, -46, 0.5, -10), MUT)
+    icon(row, data[1], UDim2.fromOffset(14, 17), ACCENT, 18)
+    text(row, "Title", data[2], UDim2.new(1, -150, 0, 18), UDim2.fromOffset(42, 9), 14, TXT, true)
+    local desc = text(row, "Description", data[3], UDim2.new(1, -150, 0, 16), UDim2.fromOffset(42, 27), 12, MUT)
+    local state = text(row, "State", "", UDim2.fromOffset(60, 52), UDim2.new(1, -70, 0, 0), 12, MUT)
+    state.TextXAlignment = Enum.TextXAlignment.Right
+    icon(row, "Arrow", UDim2.new(1, -30, 0.5, -7), MUT, 14)
     hover(row, CARD)
     connect(row.Activated, function() navigate(data[1]) end)
     painters[#painters + 1] = function()
         local on = getgenv()[data[4]] == true
         state.Text = on and "Running" or "Off"
         state.TextColor3 = on and ACCENT or MUT
-        desc.Visible = row.AbsoluteSize.X >= 380
+        desc.Visible = row.AbsoluteSize.X >= 320
     end
 end
 
 section(farmPage, "Seed cycle", 1)
 do
-    local ec = panel(farmPage, "Farm", "Auto farm seeds", "Reroll seeds, wait for results, then collect.", 2, 96)
+    local ec = panel(farmPage, "Farm", "Auto farm seeds", "Reroll seeds, wait for results, then collect.", 2, 56)
     toggle(ec.head, function() return getgenv().CW_Farm end,
         function(v)
             if v then getgenv().CW_FarmSince = os.clock()
@@ -2195,7 +2182,7 @@ do
                 getgenv().CW_AntiShake = false
                 pcall(shakeOff)
             end
-        end, -76)
+        end, -52)
     subToggle(ec.body, "Farm", "Auto frenzy", ec, 10,
         function() return getgenv().CW_Frenzy end,
         function(v) getgenv().CW_Frenzy = v end)
@@ -2210,10 +2197,10 @@ toggle(card(farmPage, "Farm", "Diamond fertilizer", "Collect only fully grown di
 
 section(treePage, "Planting and care", 1)
 do
-    local ec = panel(treePage, "Trees", "Auto trees", "Plant by priority, chop mature trees and collect drops.", 2, 96)
+    local ec = panel(treePage, "Trees", "Auto trees", "Plant by priority, chop mature trees and collect drops.", 2, 56)
     toggle(ec.head,
         function() return getgenv().CW_Trees end,
-        function(v) getgenv().CW_Trees = v end, -76)
+        function(v) getgenv().CW_Trees = v end, -52)
     subToggle(ec.body, "Trees", "Auto fertilize", ec, 10,
         function() return getgenv().CW_Fert end,
         function(v) getgenv().CW_Fert = v end)
@@ -2240,10 +2227,10 @@ priorityHelp.TextTruncate = Enum.TextTruncate.None
 
 section(shopPage, "Gem store", 1)
 do
-    local ec = panel(shopPage, "Shop", "Auto buy", "Empty every picked slot, then wait for new stock.", 2, 96)
+    local ec = panel(shopPage, "Shop", "Auto buy", "Empty every picked slot, then wait for new stock.", 2, 56)
     toggle(ec.head,
         function() return getgenv().CW_Shop end,
-        function(v) getgenv().CW_Shop = v end, -76)
+        function(v) getgenv().CW_Shop = v end, -52)
     local opts = {}
     local byName = {}
     for _, it in ipairs(CW_SHOP_ITEMS) do
@@ -2263,10 +2250,10 @@ do
 end
 section(shopPage, "Restock", 3)
 do
-    local ec = panel(shopPage, "Shop", "Auto refresh", "Roll fresh stock once nothing picked is left, then buy again.", 4, 96)
+    local ec = panel(shopPage, "Shop", "Auto refresh", "Roll fresh stock once nothing picked is left, then buy again.", 4, 56)
     toggle(ec.head,
         function() return getgenv().CW_ShopRoll end,
-        function(v) getgenv().CW_ShopRoll = v end, -76)
+        function(v) getgenv().CW_ShopRoll = v end, -52)
     subChoice(ec.body, "Shop", "Pay rolls with", ec, 10,
         {{ value = "Gems", label = "Gems (100)" }, { value = "Wood Chips", label = "Chips (5000)" }},
         function() return getgenv().CW_ShopPay end,
@@ -2298,7 +2285,7 @@ for i, entry in ipairs(allCards) do
     outline(b)
     text(b, "Title", entry.title, UDim2.new(1, -58, 0, 26), UDim2.fromOffset(18, 11), 16, TXT, true)
     text(b, "Page", entry.page, UDim2.new(1, -58, 0, 20), UDim2.fromOffset(18, 39), 13, MUT)
-    icon(b, "Arrow", UDim2.new(1, -36, 0.5, -9), MUT, 18)
+    icon(b, "Arrow", UDim2.new(1, -28, 0.5, -7), MUT, 14)
     hover(b, CARD)
     connect(b.Activated, function()
         navigate(entry.page)
@@ -2330,16 +2317,16 @@ applySearch = function()
 end
 connect(search:GetPropertyChangedSignal("Text"), applySearch)
 
-local btnMin = button(header, "Minimize", UDim2.fromOffset(44, 44), UDim2.new(1, -98, 0, 8), SIDE)
+local btnMin = button(header, "Minimize", UDim2.fromOffset(34, 34), UDim2.new(1, -76, 0, 7), SIDE)
 round(btnMin, 6)
-local minIcon = icon(btnMin, "Minus", UDim2.fromOffset(12, 12), MUT)
-local plusIcon = icon(btnMin, "Plus", UDim2.fromOffset(12, 12), MUT)
+local minIcon = icon(btnMin, "Minus", UDim2.fromOffset(9, 9), MUT, 16)
+local plusIcon = icon(btnMin, "Plus", UDim2.fromOffset(9, 9), MUT, 16)
 plusIcon.Visible = false
 plusIcon.Visible = false
 hover(btnMin, SIDE)
-local btnX = button(header, "Close", UDim2.fromOffset(44, 44), UDim2.new(1, -50, 0, 8), SIDE)
+local btnX = button(header, "Close", UDim2.fromOffset(34, 34), UDim2.new(1, -40, 0, 7), SIDE)
 round(btnX, 6)
-icon(btnX, "Close", UDim2.fromOffset(12, 12), MUT)
+icon(btnX, "Close", UDim2.fromOffset(9, 9), MUT, 16)
 hover(btnX, SIDE, Color3.fromRGB(57, 35, 37))
 -- Vier Ecken ziehen die Größe, jede merkt sich ihre Richtung als Attribut.
 local resizeGrips = {}
@@ -2390,7 +2377,7 @@ cancelText.TextXAlignment = Enum.TextXAlignment.Center
 confirmText.TextXAlignment = Enum.TextXAlignment.Center
 connect(cancel.Activated, function() modal.Visible = false end)
 
-local fullSize = Vector2.new(900, 604)
+local fullSize = Vector2.new(624, 436)
 local mobileSearchOpen = false
 local function availableSize()
     local size = gui.AbsoluteSize
@@ -2409,35 +2396,35 @@ end
 local function layout()
     if collapsed or main:GetAttribute("Animating") then return end
     local w = main.AbsoluteSize.X
-    compact = w < 620
+    compact = w < 520
     main:SetAttribute("Compact", compact)
-    local sw = compact and 64 or (w < 820 and 184 or 208)
-    side.Size = UDim2.new(0, sw, 1, -102)
-    content.Position = UDim2.fromOffset(sw, 64)
-    content.Size = UDim2.new(1, -sw, 1, -102)
-    navHolder.Position = UDim2.fromOffset(compact and 10 or 12, compact and 68 or 78)
-    navHolder.Size = UDim2.new(1, compact and -20 or -24, 1, compact and -82 or -96)
+    local sw = compact and 52 or (w < 660 and 152 or 172)
+    side.Size = UDim2.new(0, sw, 1, -74)
+    content.Position = UDim2.fromOffset(sw, 48)
+    content.Size = UDim2.new(1, -sw, 1, -74)
+    navHolder.Position = UDim2.fromOffset(compact and 8 or 8, compact and 50 or 52)
+    navHolder.Size = UDim2.new(1, compact and -16 or -16, 1, compact and -58 or -60)
     for _, b in pairs(navBtns) do b.Label.Visible = not compact end
     smallSearch.Visible = compact
     searchWrap.Parent = compact and header or side
-    searchWrap.Position = compact and UDim2.fromOffset(62, 12) or UDim2.fromOffset(14, 18)
-    searchWrap.Size = compact and UDim2.new(1, -166, 0, 40) or UDim2.new(1, -28, 0, 42)
+    searchWrap.Position = compact and UDim2.fromOffset(52, 9) or UDim2.fromOffset(10, 12)
+    searchWrap.Size = compact and UDim2.new(1, -140, 0, 30) or UDim2.new(1, -20, 0, 32)
     searchWrap.Visible = not compact or mobileSearchOpen
     searchWrap.ZIndex = 4
     title.Visible = not (compact and mobileSearchOpen)
     version.Visible = not compact
     footHint.Visible = not compact
-    dialog.Size = UDim2.fromOffset(math.min(400, w - 32), 220)
+    dialog.Size = UDim2.fromOffset(math.min(360, w - 24), 190)
     for _, grip in ipairs(resizeGrips) do grip.Visible = not collapsed end
-    local inset = compact and 16 or 24
+    local inset = compact and 12 or 16
     pageHead.Position = UDim2.fromOffset(inset, 0)
-    pageHead.Size = UDim2.new(1, -inset * 2, 0, 96)
+    pageHead.Size = UDim2.new(1, -inset * 2, 0, 56)
     pageDesc.TextWrapped = true
     pageDesc.TextTruncate = Enum.TextTruncate.None
-    pageDesc.Size = UDim2.new(1, 0, 0, 22)
+    pageDesc.Size = UDim2.new(1, 0, 0, 18)
     for _, pg in pairs(pages) do
-        pg.Position = UDim2.fromOffset(0, 96)
-        pg.Size = UDim2.new(1, 0, 1, -96)
+        pg.Position = UDim2.fromOffset(0, 56)
+        pg.Size = UDim2.new(1, 0, 1, -56)
         local pad = pg:FindFirstChildOfClass("UIPadding")
         pad.PaddingLeft = UDim.new(0, inset)
         pad.PaddingRight = UDim.new(0, inset)
@@ -2447,7 +2434,7 @@ end
 local function fitViewport()
     local vp = availableSize()
     fullSize = Vector2.new(math.min(fullSize.X, vp.X - 24), math.min(fullSize.Y, vp.Y - 24))
-    main.Size = collapsed and UDim2.fromOffset(math.min(286, vp.X - 24), 58) or UDim2.fromOffset(fullSize.X, fullSize.Y)
+    main.Size = collapsed and UDim2.fromOffset(math.min(244, vp.X - 24), 50) or UDim2.fromOffset(fullSize.X, fullSize.Y)
     clampPosition()
     layout()
 end
@@ -2472,9 +2459,9 @@ local function setCollapsed(value)
     mobileSearchOpen = false
     modal.Visible = false
     local vp = availableSize()
-    animate(main, { Size = value and UDim2.fromOffset(math.min(286, vp.X - 24), 58)
+    animate(main, { Size = value and UDim2.fromOffset(math.min(244, vp.X - 24), 50)
         or UDim2.fromOffset(fullSize.X, fullSize.Y) }, 0.34)
-    animate(mainCorner, { CornerRadius = UDim.new(0, value and 29 or 12) }, 0.34)
+    animate(mainCorner, { CornerRadius = UDim.new(0, value and 25 or 10) }, 0.34)
     task.delay(0.36, function()
         main:SetAttribute("Animating", false)
         clampPosition()
@@ -2529,8 +2516,8 @@ connect(UIS.InputChanged, function(input)
         main.Position = UDim2.fromOffset(startPosition.X + delta.X, startPosition.Y + delta.Y)
     else
         local vp = availableSize()
-        local w = math.clamp(startSize.X + delta.X * gripDir.X, math.min(358, vp.X - 24), vp.X - 24)
-        local h = math.clamp(startSize.Y + delta.Y * gripDir.Y, math.min(340, vp.Y - 24), vp.Y - 24)
+        local w = math.clamp(startSize.X + delta.X * gripDir.X, math.min(340, vp.X - 24), vp.X - 24)
+        local h = math.clamp(startSize.Y + delta.Y * gripDir.Y, math.min(300, vp.Y - 24), vp.Y - 24)
         fullSize = Vector2.new(w, h)
         main.Size = UDim2.fromOffset(w, h)
         main.Position = UDim2.fromOffset(startPosition.X + (w - startSize.X) / 2 * gripDir.X,
