@@ -29,6 +29,7 @@ getgenv().CW_ShopPay = getgenv().CW_ShopPay or "Gems"
 getgenv().CW_ShopFloor = getgenv().CW_ShopFloor or 0
 getgenv().CW_ShopPick = getgenv().CW_ShopPick or {}
 getgenv().CW_ShopStay = getgenv().CW_ShopStay or false
+getgenv().CW_ShopChipFloor = getgenv().CW_ShopChipFloor or 0
 getgenv().CW_ShopBought = 0
 getgenv().CW_ShopRolls = 0
 
@@ -756,6 +757,7 @@ do
     local CW_SHOP_PRICE = {}
     for _, it in ipairs(CW_SHOP_ITEMS) do CW_SHOP_PRICE[it.id] = it.price end
     local CW_ROLL_GEMS = 100
+    local CW_ROLL_CHIPS = 5000
     local CW_SHOP_ROUTES = {
         buy = "PurchaseGemStoreStock",
         gems = "RefreshGemStoreStockWithGems",
@@ -806,6 +808,12 @@ do
     local shopHalted = false
     local function gemBudget(cost)
         if gemCount() - cost >= (tonumber(getgenv().CW_ShopFloor) or 0) then return true end
+        shopHalted = true
+        return false
+    end
+
+    local function chipBudget(cost)
+        if woodChips() - cost >= (tonumber(getgenv().CW_ShopChipFloor) or 0) then return true end
         shopHalted = true
         return false
     end
@@ -866,7 +874,11 @@ do
 
     local function refreshStock(gs)
         local chips = getgenv().CW_ShopPay == "Wood Chips"
-        if not chips and not gemBudget(CW_ROLL_GEMS) then return false end
+        if chips then
+            if not chipBudget(CW_ROLL_CHIPS) then return false end
+        elseif not gemBudget(CW_ROLL_GEMS) then
+            return false
+        end
         local rem = shopRemote(chips and "chips" or "gems")
         local btn = gs:FindFirstChild("RerollStockButton")
         local pos = btn and shopStand(btn)
@@ -2267,11 +2279,14 @@ do
     subNumber(ec.body, "Shop", "Keep at least this many gems", ec, 20,
         function() return getgenv().CW_ShopFloor end,
         function(v) getgenv().CW_ShopFloor = v end)
+    subNumber(ec.body, "Shop", "Keep at least this many chips", ec, 25,
+        function() return getgenv().CW_ShopChipFloor end,
+        function(v) getgenv().CW_ShopChipFloor = v end)
     subToggle(ec.body, "Shop", "Stay at the store", ec, 30,
         function() return getgenv().CW_ShopStay end,
         function(v) getgenv().CW_ShopStay = v end)
 end
-local shopHelp = text(shopPage, "ShopHelp", "Buying and rolling teleport you to the store and back. Once gems hit the limit every gem purchase stops, wood chip rolls keep running.",
+local shopHelp = text(shopPage, "ShopHelp", "Buying and rolling teleport you to the store and back. Each limit stops spending of that currency, so gems and chips can run out on their own terms.",
     UDim2.new(1, 0, 0, 44), UDim2.new(), 14, MUT)
 shopHelp.LayoutOrder = 5
 shopHelp.TextWrapped = true
