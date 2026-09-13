@@ -2465,16 +2465,6 @@ do
     subToggle(ec.body, "Trees", "Auto fertilize", ec, 10,
         function() return getgenv().CW_Fert end,
         function(v) getgenv().CW_Fert = v end)
-    subToggle(ec.body, "Trees", "Auto water", ec, 12,
-        function() return getgenv().CW_Water end,
-        function(v) getgenv().CW_Water = v end)
-    local canOpts = {}
-    for _, mult in ipairs(CW_CAN_MULTS) do
-        canOpts[#canOpts + 1] = { value = mult .. "x", rarity = "Watering can" }
-    end
-    subDropdown(ec.body, "Trees", "Watering can", ec, 14, canOpts,
-        function() return (tonumber(getgenv().CW_WaterCan) or 64) .. "x" end,
-        function(v) getgenv().CW_WaterCan = tonumber((string.gsub(v, "x", ""))) or 64 end)
     local opts = {}
     opts[#opts + 1] = { value = "None", rarity = "Off" }
     for _, e in ipairs(CW_TREE_TYPES) do
@@ -2495,6 +2485,26 @@ local priorityHelp = text(treePage, "PriorityHelp", "Priority 1 is planted first
 priorityHelp.LayoutOrder = 3
 priorityHelp.TextWrapped = true
 priorityHelp.TextTruncate = Enum.TextTruncate.None
+
+section(treePage, "Watering", 4)
+do
+    local ec = panel(treePage, "Trees", "Auto water", "Refill growing planters before the boost runs out.", 5, 74)
+    toggle(ec.head,
+        function() return getgenv().CW_Water end,
+        function(v) getgenv().CW_Water = v end, -70)
+    local canOpts = {}
+    for _, mult in ipairs(CW_CAN_MULTS) do
+        canOpts[#canOpts + 1] = { value = mult .. "x", rarity = "Watering can" }
+    end
+    subDropdown(ec.body, "Trees", "Watering can", ec, 10, canOpts,
+        function() return (tonumber(getgenv().CW_WaterCan) or 64) .. "x" end,
+        function(v) getgenv().CW_WaterCan = tonumber((string.gsub(v, "x", ""))) or 64 end)
+end
+local waterHelp = text(treePage, "WaterHelp", "Runs on its own, so you can keep planters watered while farming seeds with auto trees off.",
+    UDim2.new(1, 0, 0, 44), UDim2.new(), 14, MUT)
+waterHelp.LayoutOrder = 6
+waterHelp.TextWrapped = true
+waterHelp.TextTruncate = Enum.TextTruncate.None
 
 section(shopPage, "Gem store", 1)
 do
