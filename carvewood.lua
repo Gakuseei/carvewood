@@ -1019,7 +1019,7 @@ do
     local function needsWater(planter)
         if planter:GetAttribute("TreePlanterStatus") ~= "Growing" then return false end
         local ends = tonumber(planter:GetAttribute("TreeWateringBoostEndsAt"))
-        return not ends or ends - os.time() <= 6
+        return not ends or ends - os.time() <= 1
     end
 
     -- Der Server laesst bis 35 Studs giessen, also eine Position pro Gruppe statt pro Planter.
