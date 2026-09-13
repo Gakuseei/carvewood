@@ -37,6 +37,7 @@ getgenv().CW_Carve = getgenv().CW_Carve or false
 getgenv().CW_Shelve = getgenv().CW_Shelve or false
 getgenv().CW_CarvePick = getgenv().CW_CarvePick or {}
 getgenv().CW_ShelvePick = getgenv().CW_ShelvePick or {}
+getgenv().CW_ShelveAuto = getgenv().CW_ShelveAuto or false
 getgenv().CW_Carved = getgenv().CW_Carved or 0
 getgenv().CW_Shelved = getgenv().CW_Shelved or 0
 getgenv().CW_Customers = getgenv().CW_Customers or false
@@ -1222,8 +1223,10 @@ do
         return allowed(getgenv().CW_CarvePick, woodId)
     end
 
+    -- Regale brauchen eine bewusste Auswahl, sonst landen aus Versehen die teuren Stuecke da.
     Carve.shelved = function(woodId)
-        return allowed(getgenv().CW_ShelvePick, woodId)
+        local pick = getgenv().CW_ShelvePick
+        return type(pick) == "table" and pick[woodId] == true
     end
 
     -- Das eingereichte Profil ist zugleich das Zielprofil, damit trifft es zu 100 Prozent.
@@ -1370,7 +1373,8 @@ do
                     Move.release("carve")
                 end
             end
-            if getgenv().CW_Carve or (getgenv().CW_Shelve and not didWork) then
+            local refill = getgenv().CW_Shelve and getgenv().CW_ShelveAuto
+            if getgenv().CW_Carve or (refill and not didWork) then
                 local sess = carveRemote("session")
                 local save = carveRemote("save")
                 local ty = sess and save and myTycoon()
@@ -1398,8 +1402,8 @@ do
                         local pending = {}
                         local budget = getgenv().CW_Shelve and math.min(#spots, 6) or 4
                         for _ = 1, budget do
-                            if not (getgenv().CW_Carve or getgenv().CW_Shelve) then break end
-                            -- Auto shelf allein schnitzt selbst nach, sonst gibt es nichts zum Auflegen.
+                            if not (getgenv().CW_Carve or refill) then break end
+                            -- Beim Nachschub zaehlt die Regal-Auswahl, sonst die Schnitz-Auswahl.
                             local wanted = getgenv().CW_Carve and Carve.picked or Carve.shelved
                             local variant
                             for _, v in pairs(session.RawWoodVariants or {}) do
@@ -3003,6 +3007,9 @@ do
         shelfOpts[#shelfOpts + 1] = { value = kind[1], note = "carving" }
         shelfById[kind[1]] = kind[2]
     end
+    subToggle(ec.body, "Sell Zone", "Refill from raw logs", ec, 6,
+        function() return getgenv().CW_ShelveAuto end,
+        function(v) getgenv().CW_ShelveAuto = v end)
     subMulti(ec.body, "Sell Zone", "Wood to shelf", ec, 10, shelfOpts,
         function(label)
             local pick = getgenv().CW_ShelvePick
@@ -3022,7 +3029,7 @@ toggle(card(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Take ever
     function() return getgenv().CW_Customers end,
     function(v) getgenv().CW_Customers = v end)
 do
-    local help = text(pages["Sell Zone"], "CarveHelp", "Nothing picked means every wood type counts. Auto shelf carves what it needs, each piece costs one raw log.",
+    local help = text(pages["Sell Zone"], "CarveHelp", "Auto carve takes every wood while nothing is picked. Auto shelf is the opposite, it touches only what you tick, and refill carves the missing pieces.",
         UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
     help.LayoutOrder = 7
     help.TextWrapped = true
