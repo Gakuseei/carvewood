@@ -30,6 +30,7 @@ getgenv().CW_ShopFloor = getgenv().CW_ShopFloor or 0
 getgenv().CW_ShopPick = getgenv().CW_ShopPick or {}
 getgenv().CW_ShopStay = getgenv().CW_ShopStay or false
 getgenv().CW_ShopChipFloor = getgenv().CW_ShopChipFloor or 0
+if getgenv().CW_ClickSfx == nil then getgenv().CW_ClickSfx = true end
 getgenv().CW_ShopBought = 0
 getgenv().CW_ShopRolls = 0
 
@@ -1428,10 +1429,44 @@ local function text(owner, name, value, size, pos, fontSize, color, bold, displa
         TextSize = fontSize or 15, TextColor3 = color or TXT, LineHeight = 1.08,
         TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd }, owner)
 end
+-- Klickton liegt als Datei beim Script, der Executor mappt sie auf eine Asset-Url.
+local clickTick
+do
+    local sound
+    task.spawn(function()
+        if not (writefile and getcustomasset and isfolder and makefolder and isfile) then return end
+        if not isfolder("cw-sounds") then makefolder("cw-sounds") end
+        local path = "cw-sounds/carvewood_click.wav"
+        if not isfile(path) then
+            local ok, data = pcall(function()
+                return game:HttpGet("https://raw.githubusercontent.com/Gakuseei/carvewood/master/sounds/click.wav")
+            end)
+            if not ok or type(data) ~= "string" or #data < 200 then return end
+            writefile(path, data)
+        end
+        local ok, asset = pcall(function() return getcustomasset(path) end)
+        if not ok then return end
+        local s = Instance.new("Sound")
+        s.Name = "CWClick"
+        s.SoundId = asset
+        s.Volume = 0.22
+        s.Parent = game:GetService("SoundService")
+        sound = s
+    end)
+    clickTick = function()
+        if sound and getgenv().CW_ClickSfx then
+            sound.TimePosition = 0
+            sound:Play()
+        end
+    end
+end
+
 local function button(owner, name, size, pos, color)
-    return make("TextButton", { Name = name, Size = size, Position = pos or UDim2.new(),
+    local b = make("TextButton", { Name = name, Size = size, Position = pos or UDim2.new(),
         Text = "", AutoButtonColor = false, BorderSizePixel = 0,
         BackgroundColor3 = color or CARD, BackgroundTransparency = color and 0 or 1 }, owner)
+    b.Activated:Connect(clickTick)
+    return b
 end
 local function connect(signal, fn)
     local c = signal:Connect(fn)
@@ -2336,8 +2371,12 @@ shopHelp.LayoutOrder = 5
 shopHelp.TextWrapped = true
 shopHelp.TextTruncate = Enum.TextTruncate.None
 
-section(perfPage, "Rendering", 1)
-toggle(card(perfPage, "Performance", "Low quality mode", "Reduce effects, lights and shadows. Everything is restored when you turn it off.", 2),
+section(perfPage, "Interface", 1)
+toggle(card(perfPage, "Performance", "Click sound", "Play a soft click whenever you press something.", 2),
+    function() return getgenv().CW_ClickSfx end,
+    function(v) getgenv().CW_ClickSfx = v end)
+section(perfPage, "Rendering", 3)
+toggle(card(perfPage, "Performance", "Low quality mode", "Reduce effects, lights and shadows. Everything is restored when you turn it off.", 4),
     function() return getgenv().CW_LowQ end,
     function(v) getgenv().CW_LowQ = v if v then lowQOn() else lowQOff() end end)
 
