@@ -1274,6 +1274,17 @@ do
                 local save = carveRemote("save")
                 local ty = sess and save and myTycoon()
                 if ty and Move.claim("carve", 25) then
+                    -- Der Server will den Spieler an der Drehbank sehen, sonst laeuft nichts.
+                    local lathe = ty:FindFirstChild("Lathe", true)
+                    local h = hrp()
+                    if lathe and h then
+                        local pos
+                        pcall(function() pos = lathe:GetPivot().Position end)
+                        if typeof(pos) == "Vector3" then
+                            Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 6), pos))
+                            task.wait(0.25)
+                        end
+                    end
                     local ok, session = pcall(function()
                         return sess:InvokeServer({ Active = true, SessionId = "", TycoonName = ty.Name })
                     end)
