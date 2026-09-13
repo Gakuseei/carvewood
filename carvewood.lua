@@ -1269,9 +1269,9 @@ do
         end)
         if typeof(pos) ~= "Vector3" then return false end
         local h = hrp()
-        if h then
-            Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 6), pos))
-            task.wait(0.25)
+        if h and (h.Position - pos).Magnitude > 18 then
+            Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 8), pos))
+            task.wait(0.2)
         end
         local ok, r = pcall(function()
             return rem:InvokeServer({ SpotName = spot.Name, TycoonName = ty.Name, WoodId = carvedId })
@@ -1313,8 +1313,8 @@ do
                     if lathe and h then
                         local pos
                         pcall(function() pos = lathe:GetPivot().Position end)
-                        if typeof(pos) == "Vector3" then
-                            -- Seitlich daneben stehen bleiben, sonst steckt der Charakter im Gehaeuse.
+                        -- Nur anreisen, wenn der Spieler nicht ohnehin schon an der Drehbank steht.
+                        if typeof(pos) == "Vector3" and (h.Position - pos).Magnitude > 26 then
                             local away = h.Position - pos
                             away = Vector3.new(away.X, 0, away.Z)
                             if away.Magnitude < 1 then away = Vector3.new(1, 0, 1) end
