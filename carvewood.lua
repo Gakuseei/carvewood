@@ -2771,8 +2771,10 @@ end
 local function subSlider(body, pageName, value, rootCard, order, stops, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
     local lo, hi = stops[1], stops[#stops]
-    local val = text(r, "Val", "", UDim2.fromOffset(70, 20), UDim2.new(1, -236, 0.5, -10), 15, C.ACCENT, true)
-    val.TextXAlignment = Enum.TextXAlignment.Right
+    local val = make("TextBox", { Name = "Val", Text = "", Size = UDim2.fromOffset(70, 26),
+        Position = UDim2.new(1, -236, 0.5, -13), BackgroundTransparency = 1, BorderSizePixel = 0,
+        FontFace = face(W.SemiBold), TextSize = 15, TextColor3 = C.ACCENT,
+        TextXAlignment = Enum.TextXAlignment.Right, ClearTextOnFocus = false }, r)
     local hit = button(r, "Track", UDim2.fromOffset(160, 34), UDim2.new(1, -2, 0.5, 0))
     hit.AnchorPoint = Vector2.new(1, 0.5)
     local rail = frame(hit, "Rail", UDim2.new(1, 0, 0, 6), UDim2.new(0, 0, 0.5, -3), C.SIDE)
@@ -2783,6 +2785,7 @@ local function subSlider(body, pageName, value, rootCard, order, stops, get, set
     round(knob, 8)
     outline(knob, C.ACCENT)
     local function paint()
+        if val:IsFocused() then return end
         local v = math.clamp(tonumber(get()) or lo, lo, hi)
         local idx = #stops
         for i, stop in ipairs(stops) do
@@ -2832,6 +2835,14 @@ local function subSlider(body, pageName, value, rootCard, order, stops, get, set
         val.Position = narrow and UDim2.new(1, -74, 1, -36) or UDim2.new(1, -236, 0.5, -10)
         paint()
     end
+    -- Der Wert laesst sich auch tippen, dann zaehlt jede Zahl und nicht nur die Stufen.
+    connect(val.Focused, function() val.TextColor3 = C.TXT end)
+    connect(val.FocusLost, function()
+        val.TextColor3 = C.ACCENT
+        local typed = tonumber((string.gsub(val.Text, "[^%-%d]", "")))
+        if typed then set(math.clamp(typed, lo, hi)) end
+        paint()
+    end)
     connect(r:GetPropertyChangedSignal("AbsoluteSize"), fit)
     responsive[#responsive + 1] = fit
     painters[#painters + 1] = paint
