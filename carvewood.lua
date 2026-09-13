@@ -428,12 +428,14 @@ local function plantPrio(planter)
     pcall(function() pp = planter:GetPivot().Position end)
     if typeof(pp) ~= "Vector3" then return nil end
     local dest = CFrame.new(pp + Vector3.new(0, 4, 6))
-    -- Antwort-getrieben: bei "Move closer" neu TP + Retry, sonst Prio-Fallback.
-    if not Move.claim("plant", 8) then return nil end
-    for _ = 1, 4 do
+    -- Der Server kennt die neue Position erst nach kurzer Replikation, darum wartet
+    -- der Versuch ab und bleibt bei derselben Prioritaet statt sofort durchzufallen.
+    if not Move.claim("plant", 10) then return nil end
+    for _ = 1, 5 do
         if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
         if not h.Parent then break end
         pcall(function() Move.glide(h, dest) end)
+        task.wait(0.25)
         local needCloser = false
         for _, prio in ipairs({getgenv().CW_Prio1, getgenv().CW_Prio2, getgenv().CW_Prio3}) do
             if type(prio) == "string" and prio ~= "" and prio ~= "None" then
@@ -451,7 +453,7 @@ local function plantPrio(planter)
                         Move.release("plant")
                         return nil
                     end
-                    if string.find(msg, "loser", 1, true) then
+                    if string.find(msg, "loser", 1, true) or string.find(msg, "TooFar", 1, true) then
                         needCloser = true
                         break
                     end
@@ -459,7 +461,7 @@ local function plantPrio(planter)
             end
         end
         if not needCloser then break end
-        task.wait()
+        task.wait(0.3)
     end
     Move.release("plant")
     return nil
