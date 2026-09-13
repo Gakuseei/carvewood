@@ -1473,7 +1473,16 @@ local function icon(owner, name, pos, color, size)
         ImageColor3 = color or MUT }, owner)
 end
 local function tintIcon(box, color)
-    if box and box:IsA("ImageLabel") then box.ImageColor3 = color end
+    if box and box:IsA("ImageLabel") then
+        Tween:Create(box, TweenInfo.new(0.16, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            { ImageColor3 = color }):Play()
+    end
+end
+
+-- Kurzes Aufleuchten beim Drücken, damit ein Tap spürbar quittiert wird.
+local function press(btn, base)
+    connect(btn.MouseButton1Down, function() animate(btn, { BackgroundColor3 = SELECTED }, 0.08) end)
+    connect(btn.MouseButton1Up, function() animate(btn, { BackgroundColor3 = base }, 0.18) end)
 end
 local function stack(owner, gap)
     return make("UIListLayout", { Padding = UDim.new(0, gap or 8),
@@ -1531,19 +1540,18 @@ do
     local dot = frame(mini, "Dot", UDim2.fromOffset(7, 7), UDim2.fromOffset(51, 37), MUT)
     round(dot, 4)
     local status = text(mini, "Status", "Idle", UDim2.new(1, -126, 0, 18), UDim2.fromOffset(64, 31), 13, MUT)
-    local expand = button(mini, "Expand", UDim2.fromOffset(36, 36), UDim2.new(1, -10, 0.5, 0), CARD)
+    local expand = button(mini, "Expand", UDim2.fromOffset(40, 40), UDim2.new(1, -10, 0.5, 0))
     expand.AnchorPoint = Vector2.new(1, 0.5)
     expand.ZIndex = 7
-    round(expand, 11)
-    local expandIcon = icon(expand, "Chevron", UDim2.fromOffset(8, 8), MUT, 18)
+    local expandIcon = icon(expand, "Chevron", UDim2.fromOffset(11, 11), MUT, 18)
     expandIcon.Rotation = 180
     connect(expand.MouseEnter, function()
-        animate(expand, { BackgroundColor3 = SELECTED }, 0.14)
         tintIcon(expandIcon, ACCENT)
+        animate(expandIcon, { Size = UDim2.fromOffset(21, 21), Position = UDim2.fromOffset(9, 9) }, 0.14)
     end)
     connect(expand.MouseLeave, function()
-        animate(expand, { BackgroundColor3 = CARD }, 0.14)
         tintIcon(expandIcon, MUT)
+        animate(expandIcon, { Size = UDim2.fromOffset(18, 18), Position = UDim2.fromOffset(11, 11) }, 0.14)
     end)
     local pulse
     paintMini = function(running, label)
@@ -1620,6 +1628,10 @@ showPage = function()
         if on then
             pg.Position = UDim2.fromOffset(0, 78)
             animate(pg, { Position = UDim2.fromOffset(0, 66) }, 0.22)
+            pageTitle.Position = UDim2.fromOffset(-10, 14)
+            pageDesc.Position = UDim2.fromOffset(-10, 42)
+            animate(pageTitle, { Position = UDim2.fromOffset(0, 14) }, 0.28)
+            animate(pageDesc, { Position = UDim2.fromOffset(0, 42) }, 0.34)
         end
     end
     for _, info in ipairs(PAGE_INFO) do
@@ -1646,6 +1658,7 @@ local function navItem(info, order)
     icon(b, name, UDim2.fromOffset(13, 13), MUT, 20)
     text(b, "Label", name, UDim2.new(1, -50, 1, 0), UDim2.fromOffset(45, 0), 17, MUT, true)
     navBtns[name] = b
+    press(b, SIDE)
     connect(b.Activated, function() navigate(name) end)
     connect(b.MouseEnter, function() if name ~= currentPage then animate(b, { BackgroundColor3 = CARD }) end end)
     connect(b.MouseLeave, paintNav)
@@ -1707,9 +1720,14 @@ local function toggle(row, get, set, rightInset)
         previous = on
         b:SetAttribute("Value", on)
         trackLine.Color = on and ACCENT or STROKE
-        trackLine.Transparency = on and 0.45 or 0
+        if on then
+            trackLine.Transparency = 0
+            Tween:Create(trackLine, TweenInfo.new(0.5, Enum.EasingStyle.Quad), { Transparency = 0.45 }):Play()
+        else
+            trackLine.Transparency = 0
+        end
         animate(track, { BackgroundColor3 = on and ACCENT_SOFT or CTRL }, 0.18)
-        animate(knob, { Position = UDim2.fromOffset(on and 25 or 3, 3) }, 0.24)
+        animate(knob, { Position = UDim2.fromOffset(on and 25 or 3, 3) }, 0.3, Enum.EasingStyle.Back)
     end
     local function fit()
         local stacked = row.AbsoluteSize.X < 400 and row.AbsoluteSize.Y >= 100
@@ -1933,7 +1951,7 @@ local function subDropdown(body, pageName, value, rootCard, order, options, get,
         sc.CanvasPosition = Vector2.zero
     end)
     connect(list:GetPropertyChangedSignal("Visible"), function()
-        arrow.Rotation = list.Visible and 180 or 0
+        animate(arrow, { Rotation = list.Visible and 180 or 0 }, 0.22)
         border.Color = list.Visible and ACCENT or STROKE
         if not list.Visible then filter:ReleaseFocus() end
     end)
@@ -2030,7 +2048,7 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
         end)
     end
     connect(list:GetPropertyChangedSignal("Visible"), function()
-        arrow.Rotation = list.Visible and 180 or 0
+        animate(arrow, { Rotation = list.Visible and 180 or 0 }, 0.22)
         border.Color = list.Visible and ACCENT or STROKE
     end)
     connect(b.Activated, function()
@@ -2133,7 +2151,15 @@ do
         {"Chopped", "CWValTrees", "0"}, {"Bought", "CWValBuys", "0"}}) do
         local cell = frame(strip, d[2] .. "Cell", UDim2.new(0.25, 0, 1, 0), UDim2.new((i - 1) / 4, 0, 0, 0))
         text(cell, "Label", d[1], UDim2.new(1, -22, 0, 20), UDim2.fromOffset(18, 13), 15, MUT)
-        text(cell, d[2], d[3], UDim2.new(1, -22, 0, 34), UDim2.fromOffset(18, 36), 26, i == 1 and ACCENT or TXT, true, true)
+        local valueLabel = text(cell, d[2], d[3], UDim2.new(1, -22, 0, 34), UDim2.fromOffset(18, 36), 26, i == 1 and ACCENT or TXT, true, true)
+        local resting = i == 1 and ACCENT or TXT
+        local shown = valueLabel.Text
+        painters[#painters + 1] = function()
+            if valueLabel.Text == shown then return end
+            shown = valueLabel.Text
+            valueLabel.TextColor3 = ACCENT
+            Tween:Create(valueLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quad), { TextColor3 = resting }):Play()
+        end
         if i > 1 then
             local sep = frame(cell, "Sep", UDim2.fromOffset(1, 40), UDim2.fromOffset(0, 20), STROKE)
             sep.BackgroundTransparency = 0.4
@@ -2162,7 +2188,9 @@ for i, data in ipairs({{"Farm", "Seed farming", "Rerolls, frenzy and collection"
     row.LayoutOrder = i + 5
     round(row, 12)
     outline(row)
-    icon(row, data[1], UDim2.fromOffset(18, 24), ACCENT, 20)
+    local rowIcon = icon(row, data[1], UDim2.fromOffset(18, 24), ACCENT, 20)
+    connect(row.MouseEnter, function() animate(rowIcon, { Position = UDim2.fromOffset(22, 24) }, 0.18) end)
+    connect(row.MouseLeave, function() animate(rowIcon, { Position = UDim2.fromOffset(18, 24) }, 0.18) end)
     text(row, "Title", data[2], UDim2.new(1, -190, 0, 23), UDim2.fromOffset(50, 12), 17, TXT, true)
     local desc = text(row, "Description", data[3], UDim2.new(1, -190, 0, 21), UDim2.fromOffset(50, 36), 14, MUT)
     local state = text(row, "State", "", UDim2.fromOffset(80, 68), UDim2.new(1, -130, 0, 0), 14, MUT)
