@@ -38,6 +38,8 @@ getgenv().CW_Shelve = getgenv().CW_Shelve or false
 getgenv().CW_CarvePick = getgenv().CW_CarvePick or {}
 getgenv().CW_Carved = getgenv().CW_Carved or 0
 getgenv().CW_Shelved = getgenv().CW_Shelved or 0
+getgenv().CW_Customers = getgenv().CW_Customers or false
+getgenv().CW_Sold = getgenv().CW_Sold or 0
 if getgenv().CW_ClickSfx == nil then getgenv().CW_ClickSfx = true end
 getgenv().CW_ShopBought = 0
 getgenv().CW_ShopRolls = 0
@@ -1183,6 +1185,7 @@ local Carve = { kinds = {
     {"Scorching Mushroom", "scorchingmushroom"}, {"Kelp", "kelp"},
 } }
 do
+    local Client = require(game:GetService("ReplicatedFirst"):WaitForChild("Client"))
     local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
     local WC = Shared:WaitForChild("WoodCarving")
     local Serializer = require(WC:WaitForChild("Serializer"))
@@ -1193,6 +1196,7 @@ do
         save = "SaveCarvedWood",
         place = "PlaceCarvedWoodOnSaleSpot",
         placeLast = "PlaceLastWoodStackItemOnSaleSpot",
+        offer = "SaleNPCOfferResponse",
     }
     local ids = {}
 
@@ -1266,6 +1270,26 @@ do
         return ok and type(r) == "table" and r.Success == true
     end
 
+    -- Kundenangebote haengen im SaleNPCs-Modul, annehmen geht ohne Laufweg.
+    task.spawn(function()
+        while getgenv().CW_Running and getgenv().CW_Gen == myGen do
+            if getgenv().CW_Customers then
+                local rem = carveRemote("offer")
+                local client = Client
+                local sale = client and client.ActiveModules and client.ActiveModules.SaleNPCs
+                if rem and sale and type(sale.ActiveOffers) == "table" then
+                    for id in pairs(sale.ActiveOffers) do
+                        if not getgenv().CW_Customers then break end
+                        local ok = pcall(function() rem:FireServer({ OfferId = id, Accepted = true }) end)
+                        if ok then getgenv().CW_Sold = (getgenv().CW_Sold or 0) + 1 end
+                        task.wait(0.15)
+                    end
+                end
+            end
+            task.wait(0.6)
+        end
+    end)
+
     task.spawn(function()
         while getgenv().CW_Running and getgenv().CW_Gen == myGen do
             local didWork = false
@@ -1281,7 +1305,11 @@ do
                         local pos
                         pcall(function() pos = lathe:GetPivot().Position end)
                         if typeof(pos) == "Vector3" then
-                            Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 6), pos))
+                            -- Seitlich daneben stehen bleiben, sonst steckt der Charakter im Gehaeuse.
+                            local away = h.Position - pos
+                            away = Vector3.new(away.X, 0, away.Z)
+                            if away.Magnitude < 1 then away = Vector3.new(1, 0, 1) end
+                            Move.glide(h, CFrame.new(pos + away.Unit * 11 + Vector3.new(0, 2, 0), pos))
                             task.wait(0.25)
                         end
                     end
@@ -2851,10 +2879,13 @@ section(pages["Sell Zone"], "Shelves", 3)
 toggle(card(pages["Sell Zone"], "Sell Zone", "Auto shelf", "Put finished carvings straight onto free shelf spots.", 4),
     function() return getgenv().CW_Shelve end,
     function(v) getgenv().CW_Shelve = v end)
+toggle(card(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Take every offer the shoppers make, no walking needed.", 5),
+    function() return getgenv().CW_Customers end,
+    function(v) getgenv().CW_Customers = v end)
 do
     local help = text(pages["Sell Zone"], "CarveHelp", "Nothing picked means every wood type counts. Carving eats one raw log per piece.",
         UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
-    help.LayoutOrder = 5
+    help.LayoutOrder = 6
     help.TextWrapped = true
     help.TextTruncate = Enum.TextTruncate.None
 end
@@ -3202,7 +3233,7 @@ local STATUS_NAMES = {
     {"CW_Farm", "Seed farm"}, {"CW_Trees", "Trees"}, {"CW_Frenzy", "Frenzy"},
     {"CW_CollectCan", "Cans"}, {"CW_CollectFert", "Fertilizer"}, {"CW_Fert", "Fertilize"},
     {"CW_Shop", "Shop"}, {"CW_ShopRoll", "Restock"},
-    {"CW_Carve", "Carve"}, {"CW_Shelve", "Shelf"},
+    {"CW_Carve", "Carve"}, {"CW_Shelve", "Shelf"}, {"CW_Customers", "Customers"},
 }
 task.spawn(function()
     while gui.Parent do
