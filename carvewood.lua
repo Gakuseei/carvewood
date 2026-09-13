@@ -36,6 +36,7 @@ getgenv().CW_ShopChipFloor = getgenv().CW_ShopChipFloor or 0
 getgenv().CW_Carve = getgenv().CW_Carve or false
 getgenv().CW_Shelve = getgenv().CW_Shelve or false
 getgenv().CW_CarvePick = getgenv().CW_CarvePick or {}
+getgenv().CW_ShelvePick = getgenv().CW_ShelvePick or {}
 getgenv().CW_Carved = getgenv().CW_Carved or 0
 getgenv().CW_Shelved = getgenv().CW_Shelved or 0
 getgenv().CW_Customers = getgenv().CW_Customers or false
@@ -1209,11 +1210,19 @@ do
         return rem
     end
 
-    Carve.picked = function(woodId)
-        local pick = getgenv().CW_CarvePick
+    -- Leere Auswahl heisst alles, sonst zaehlt nur was angehakt ist.
+    local function allowed(pick, woodId)
         if type(pick) ~= "table" then return false end
         if next(pick) == nil then return true end
         return pick[woodId] == true
+    end
+
+    Carve.picked = function(woodId)
+        return allowed(getgenv().CW_CarvePick, woodId)
+    end
+
+    Carve.shelved = function(woodId)
+        return allowed(getgenv().CW_ShelvePick, woodId)
     end
 
     -- Das eingereichte Profil ist zugleich das Zielprofil, damit trifft es zu 100 Prozent.
@@ -1347,7 +1356,7 @@ do
                             getgenv().CW_Carved = (getgenv().CW_Carved or 0) + 1
                             getgenv().CW_LastCarve = res.Entry.DisplayName .. " " .. tostring(res.Entry.Quality) .. "%"
                             didWork = true
-                            if getgenv().CW_Shelve and spots[slot] then
+                            if getgenv().CW_Shelve and spots[slot] and Carve.shelved(variant.WoodId) then
                                 if placeOn(spots[slot], ty, res.Entry.Id) then
                                     getgenv().CW_Shelved = (getgenv().CW_Shelved or 0) + 1
                                 end
@@ -2876,16 +2885,39 @@ do
         end)
 end
 section(pages["Sell Zone"], "Shelves", 3)
-toggle(card(pages["Sell Zone"], "Sell Zone", "Auto shelf", "Put finished carvings straight onto free shelf spots.", 4),
-    function() return getgenv().CW_Shelve end,
-    function(v) getgenv().CW_Shelve = v end)
-toggle(card(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Take every offer the shoppers make, no walking needed.", 5),
+do
+    local ec = panel(pages["Sell Zone"], "Sell Zone", "Auto shelf", "Put finished carvings straight onto free shelf spots.", 4, 74)
+    toggle(ec.head,
+        function() return getgenv().CW_Shelve end,
+        function(v) getgenv().CW_Shelve = v end, -70)
+    local shelfOpts = {}
+    local shelfById = {}
+    for _, kind in ipairs(Carve.kinds) do
+        shelfOpts[#shelfOpts + 1] = { value = kind[1], note = "carving" }
+        shelfById[kind[1]] = kind[2]
+    end
+    subMulti(ec.body, "Sell Zone", "Wood to shelf", ec, 10, shelfOpts,
+        function(label)
+            local pick = getgenv().CW_ShelvePick
+            return type(pick) == "table" and pick[shelfById[label]] == true
+        end,
+        function(label, on)
+            local pick = getgenv().CW_ShelvePick
+            if type(pick) ~= "table" then
+                pick = {}
+                getgenv().CW_ShelvePick = pick
+            end
+            pick[shelfById[label]] = on or nil
+        end)
+end
+section(pages["Sell Zone"], "Customers", 5)
+toggle(card(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Take every offer the shoppers make, no walking needed.", 6),
     function() return getgenv().CW_Customers end,
     function(v) getgenv().CW_Customers = v end)
 do
     local help = text(pages["Sell Zone"], "CarveHelp", "Nothing picked means every wood type counts. Carving eats one raw log per piece.",
         UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
-    help.LayoutOrder = 6
+    help.LayoutOrder = 7
     help.TextWrapped = true
     help.TextTruncate = Enum.TextTruncate.None
 end
