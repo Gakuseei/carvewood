@@ -611,7 +611,7 @@ do
         if not h then return end
         local RunService = game:GetService("RunService")
         local t0 = os.clock()
-        while os.clock() - t0 < 1 do
+        while os.clock() - t0 < 3 do
             local c = dropContainer()
             if c and #c:GetChildren() > 0 then break end
             task.wait(0.05)
@@ -653,7 +653,7 @@ do
         end)
 
         for _ = 1, 4 do
-            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+            if not getgenv().CW_Running then break end
             local logs = collectLists()
             if #logs == 0 then
                 if #chips > 0 then task.wait(0.25) end
@@ -677,7 +677,7 @@ do
                 stops[#stops + 1] = mid / #group
             end
             for _, stop in ipairs(stops) do
-                if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+                if not getgenv().CW_Running then break end
                 pcall(function() Move.glide(h, CFrame.new(stop + Vector3.new(0, 3, 0))) end)
                 task.wait(0.22)
             end
@@ -1106,6 +1106,13 @@ do
             if getgenv().CW_Water then
                 local rem = waterRemote()
                 local ty = rem and myTycoon()
+                -- Ohne passende Kanne bleibt der Spieler stehen, statt sinnlos zu springen.
+                if ty and not pickCan() then
+                    getgenv().CW_WaterNote = "no " .. tostring(getgenv().CW_WaterCan) .. "x cans left"
+                    ty = nil
+                elseif ty then
+                    getgenv().CW_WaterNote = nil
+                end
                 if ty then
                     local h = hrp()
                     local save = h and h.CFrame
@@ -2549,6 +2556,21 @@ do
     subDropdown(ec.body, "Trees", "Watering can", ec, 10, canOpts,
         function() return (tonumber(getgenv().CW_WaterCan) or 64) .. "x" end,
         function(v) getgenv().CW_WaterCan = tonumber((string.gsub(v, "x", ""))) or 64 end)
+    local note = text(ec.body, "CanNote", "", UDim2.new(1, -4, 0, 20), UDim2.new(), 13, MUT)
+    note.LayoutOrder = 20
+    painters[#painters + 1] = function()
+        local want = tonumber(getgenv().CW_WaterCan) or 64
+        local held = 0
+        for _, root in ipairs({ LP.Character, LP.Backpack }) do
+            if root then
+                for _, t in ipairs(root:GetChildren()) do
+                    if t:IsA("Tool") and t:GetAttribute("WateringCanMultiplier") == want then held = held + 1 end
+                end
+            end
+        end
+        note.Text = held > 0 and (held .. " cans in stock") or ("No " .. want .. "x cans left, watering paused")
+        note.TextColor3 = held > 0 and MUT or Color3.fromRGB(226, 132, 118)
+    end
 end
 local waterHelp = text(treePage, "WaterHelp", "Runs on its own, so you can keep planters watered while farming seeds with auto trees off.",
     UDim2.new(1, 0, 0, 44), UDim2.new(), 14, MUT)
