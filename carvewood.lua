@@ -2823,7 +2823,10 @@ do
         byLabel[kind[1]] = kind[2]
     end
     subMulti(ec.body, "Sell Zone", "Wood to carve", ec, 10, woodOpts,
-        function(label) return Carve.picked(byLabel[label]) end,
+        function(label)
+            local pick = getgenv().CW_CarvePick
+            return type(pick) == "table" and pick[byLabel[label]] == true
+        end,
         function(label, on)
             local pick = getgenv().CW_CarvePick
             if type(pick) ~= "table" then
