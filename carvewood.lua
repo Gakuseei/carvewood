@@ -607,59 +607,81 @@ do
     sweepDrops = function()
         local h = hrp()
         if not h then return end
+        local RunService = game:GetService("RunService")
         local t0 = os.clock()
         while os.clock() - t0 < 1 do
             local c = dropContainer()
             if c and #c:GetChildren() > 0 then break end
             task.wait(0.05)
         end
-        -- Drops duerfen bis 48 Studs von ihrem Ursprung gemeldet werden, also holt
-        -- der Script sie in den Aufsammelradius statt jeden einzeln anzufliegen.
-        local anchor = h.Position
-        for _ = 1, 40 do
-            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-            local pulled, left = 0, 0
+
+        -- Holzspaene folgen dem Spieler, wenn man sie jeden Frame nachsetzt.
+        -- Logs buchen auf ihrer Ursprungsposition, die muss man anfliegen.
+        local chips = {}
+        local function collectLists()
+            local logs = {}
             pcall(function()
                 local c = dropContainer()
                 if not c then return end
+                table.clear(chips)
                 for _, d in ipairs(c:GetChildren()) do
-                    if string.find(d.Name, "Drop", 1, true) then
-                        left = left + 1
+                    if string.find(d.Name, "ChipDrop", 1, true) then
+                        chips[#chips + 1] = d
+                    elseif string.find(d.Name, "Drop", 1, true) then
                         local pos = dropPos(d)
-                        if pos and (pos - anchor).Magnitude < 42 then
-                            local target = CFrame.new(anchor + Vector3.new(0, -1.5, 0))
-                            if d:IsA("Model") then
-                                d:PivotTo(target)
-                            elseif d:IsA("BasePart") then
-                                d.CFrame = target
-                            end
-                            pulled = pulled + 1
-                        end
+                        if pos then logs[#logs + 1] = pos end
                     end
                 end
             end)
-            if left == 0 then break end
-            task.wait(0.08)
-            if pulled == 0 then
-                local spots = {}
-                pcall(function()
-                    local c = dropContainer()
-                    if not c then return end
-                    for _, d in ipairs(c:GetChildren()) do
-                        if string.find(d.Name, "Drop", 1, true) then
-                            local pos = dropPos(d)
-                            if pos then spots[#spots + 1] = pos end
-                        end
-                    end
-                end)
-                if #spots == 0 then break end
-                for _, pos in ipairs(spots) do
-                    pcall(function() Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 0))) end)
-                    task.wait(0.12)
+            return logs
+        end
+
+        local pulling = RunService.RenderStepped:Connect(function()
+            local root = hrp()
+            if not root then return end
+            local target = CFrame.new(root.Position + Vector3.new(0, -1, 0))
+            for i = #chips, 1, -1 do
+                local d = chips[i]
+                if d.Parent then
+                    pcall(function() d:PivotTo(target) end)
+                else
+                    table.remove(chips, i)
                 end
-                anchor = h.Position
+            end
+        end)
+
+        for _ = 1, 4 do
+            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+            local logs = collectLists()
+            if #logs == 0 then
+                if #chips > 0 then task.wait(0.25) end
+                break
+            end
+            local stops = {}
+            while #logs > 0 do
+                local anchor = table.remove(logs, 1)
+                local group = { anchor }
+                local i = 1
+                while i <= #logs do
+                    local d = logs[i] - anchor
+                    if math.sqrt(d.X * d.X + d.Z * d.Z) <= 7 then
+                        group[#group + 1] = table.remove(logs, i)
+                    else
+                        i = i + 1
+                    end
+                end
+                local mid = Vector3.zero
+                for _, pos in ipairs(group) do mid = mid + pos end
+                stops[#stops + 1] = mid / #group
+            end
+            for _, stop in ipairs(stops) do
+                if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+                pcall(function() Move.glide(h, CFrame.new(stop + Vector3.new(0, 3, 0))) end)
+                task.wait(0.22)
             end
         end
+        task.wait(0.2)
+        pulling:Disconnect()
     end
 
     -- Der AxeController kettet Schwuenge selbst weiter, solange HeldInput steht.
