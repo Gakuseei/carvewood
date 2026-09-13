@@ -1260,23 +1260,46 @@ do
         return out
     end
 
+    -- Alle Regalplaetze liegen dicht beieinander, ein Standort in der Mitte reicht.
+    local function shelfCenter(ty)
+        local root = ty:FindFirstChild("TycoonRoot", true)
+        local holder = root and root:FindFirstChild("SaleSpots")
+        if not holder then return nil end
+        local mid, count = Vector3.zero, 0
+        for _, spot in ipairs(holder:GetChildren()) do
+            if spot:GetAttribute("SaleSpot") == true then
+                local ok, pos = pcall(function()
+                    return spot:IsA("BasePart") and spot.Position or spot:GetPivot().Position
+                end)
+                if ok and typeof(pos) == "Vector3" then
+                    mid = mid + pos
+                    count = count + 1
+                end
+            end
+        end
+        if count == 0 then return nil end
+        return mid / count
+    end
+
     local function placeOn(spot, ty, carvedId)
         local rem = carveRemote("place")
         if not rem then return false end
+        local ok, r = pcall(function()
+            return rem:InvokeServer({ SpotName = spot.Name, TycoonName = ty.Name, WoodId = carvedId })
+        end)
+        if ok and type(r) == "table" and r.Success == true then return true end
         local pos
         pcall(function()
             pos = spot:IsA("BasePart") and spot.Position or spot:GetPivot().Position
         end)
-        if typeof(pos) ~= "Vector3" then return false end
         local h = hrp()
-        if h and (h.Position - pos).Magnitude > 18 then
-            Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 8), pos))
-            task.wait(0.2)
-        end
-        local ok, r = pcall(function()
+        if typeof(pos) ~= "Vector3" or not h then return false end
+        Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 8), pos))
+        task.wait(0.25)
+        local ok2, r2 = pcall(function()
             return rem:InvokeServer({ SpotName = spot.Name, TycoonName = ty.Name, WoodId = carvedId })
         end)
-        return ok and type(r) == "table" and r.Success == true
+        return ok2 and type(r2) == "table" and r2.Success == true
     end
 
     -- Kundenangebote haengen im SaleNPCs-Modul, annehmen geht ohne Laufweg.
@@ -1313,13 +1336,13 @@ do
                     if lathe and h then
                         local pos
                         pcall(function() pos = lathe:GetPivot().Position end)
-                        -- Nur anreisen, wenn der Spieler nicht ohnehin schon an der Drehbank steht.
-                        if typeof(pos) == "Vector3" and (h.Position - pos).Magnitude > 26 then
+                        -- Die Session gilt nur bis 14 Studs, darum knapp danebenstellen.
+                        if typeof(pos) == "Vector3" and (h.Position - pos).Magnitude > 12 then
                             local away = h.Position - pos
                             away = Vector3.new(away.X, 0, away.Z)
                             if away.Magnitude < 1 then away = Vector3.new(1, 0, 1) end
-                            Move.glide(h, CFrame.new(pos + away.Unit * 11 + Vector3.new(0, 2, 0), pos))
-                            task.wait(0.25)
+                            Move.glide(h, CFrame.new(pos + away.Unit * 8 + Vector3.new(0, 2, 0), pos))
+                            task.wait(0.3)
                         end
                     end
                     local ok, session = pcall(function()
@@ -1327,13 +1350,15 @@ do
                     end)
                     if ok and type(session) == "table" and session.Success then
                         local spots = freeSpots(ty)
-                        local slot = 1
+                        local pending = {}
                         local budget = getgenv().CW_Shelve and math.min(#spots, 6) or 4
                         for _ = 1, budget do
                             if not (getgenv().CW_Carve or getgenv().CW_Shelve) then break end
+                            -- Auto shelf allein schnitzt selbst nach, sonst gibt es nichts zum Auflegen.
+                            local wanted = getgenv().CW_Carve and Carve.picked or Carve.shelved
                             local variant
                             for _, v in pairs(session.RawWoodVariants or {}) do
-                                if (v.Count or 0) > 0 and not v.IsMega and Carve.picked(v.WoodId) then
+                                if (v.Count or 0) > 0 and not v.IsMega and wanted(v.WoodId) then
                                     variant = v
                                     break
                                 end
@@ -1356,13 +1381,26 @@ do
                             getgenv().CW_Carved = (getgenv().CW_Carved or 0) + 1
                             getgenv().CW_LastCarve = res.Entry.DisplayName .. " " .. tostring(res.Entry.Quality) .. "%"
                             didWork = true
-                            if getgenv().CW_Shelve and spots[slot] and Carve.shelved(variant.WoodId) then
-                                if placeOn(spots[slot], ty, res.Entry.Id) then
-                                    getgenv().CW_Shelved = (getgenv().CW_Shelved or 0) + 1
-                                end
-                                slot = slot + 1
+                            if getgenv().CW_Shelve and Carve.shelved(variant.WoodId) then
+                                pending[#pending + 1] = res.Entry.Id
                             end
                             task.wait(0.15)
+                        end
+                        -- Erst am Stueck schnitzen, dann einmal zu den Regalen und alles ablegen.
+                        if #pending > 0 then
+                            local center = shelfCenter(ty)
+                            local h2 = hrp()
+                            if center and h2 then
+                                Move.glide(h2, CFrame.new(center + Vector3.new(0, 6, 0)))
+                                task.wait(0.3)
+                            end
+                            for i, id in ipairs(pending) do
+                                if not spots[i] then break end
+                                if placeOn(spots[i], ty, id) then
+                                    getgenv().CW_Shelved = (getgenv().CW_Shelved or 0) + 1
+                                end
+                                task.wait(0.12)
+                            end
                         end
                     end
                     pcall(function()
@@ -2939,7 +2977,7 @@ toggle(card(pages["Sell Zone"], "Sell Zone", "Auto accept customers", "Take ever
     function() return getgenv().CW_Customers end,
     function(v) getgenv().CW_Customers = v end)
 do
-    local help = text(pages["Sell Zone"], "CarveHelp", "Nothing picked means every wood type counts. Carving eats one raw log per piece.",
+    local help = text(pages["Sell Zone"], "CarveHelp", "Nothing picked means every wood type counts. Auto shelf carves what it needs, each piece costs one raw log.",
         UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
     help.LayoutOrder = 7
     help.TextWrapped = true
