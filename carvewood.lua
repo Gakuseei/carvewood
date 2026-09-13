@@ -2492,7 +2492,7 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
     local selected = text(b, "Value", "", UDim2.new(1, -46, 0, 21), UDim2.fromOffset(13, 3), 16, C.TXT, true)
     local summary = text(b, "Summary", "", UDim2.new(1, -46, 0, 16), UDim2.fromOffset(13, 22), 13, C.MUT)
     local arrow = icon(b, "Chevron", UDim2.new(1, -28, 0.5, -8), C.MUT, 16)
-    local listHeight = math.min(264, 16 + #options * 46)
+    local listHeight = math.min(288, 58 + #options * 46)
     local list = frame(body, "Picks_" .. order, UDim2.new(1, 0, 0, listHeight), nil, C.SIDE)
     list.LayoutOrder = order + 1
     list.Visible = false
@@ -2501,8 +2501,16 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
     round(list, 8)
     outline(list)
     DD2_LISTS[#DD2_LISTS + 1] = list
-    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(10, 8),
-        Size = UDim2.new(1, -20, 1, -16), BackgroundTransparency = 1, BorderSizePixel = 0,
+    local filterWrap = frame(list, "Filter", UDim2.new(1, -20, 0, 36), UDim2.fromOffset(10, 9), C.CARD)
+    round(filterWrap, 8)
+    icon(filterWrap, "Search", UDim2.fromOffset(10, 9), C.MUT, 16)
+    local filter = make("TextBox", { Name = "Search", Size = UDim2.new(1, -40, 1, 0),
+        Position = UDim2.fromOffset(34, 0), Text = "", PlaceholderText = "Search",
+        PlaceholderColor3 = C.MUT, TextColor3 = C.TXT, BackgroundTransparency = 1,
+        ClearTextOnFocus = false, FontFace = face(W.Regular), TextSize = 15,
+        TextXAlignment = Enum.TextXAlignment.Left }, filterWrap)
+    local sc = make("ScrollingFrame", { Name = "Options", Position = UDim2.fromOffset(10, 52),
+        Size = UDim2.new(1, -20, 1, -60), BackgroundTransparency = 1, BorderSizePixel = 0,
         ScrollBarThickness = 2, ScrollBarImageColor3 = C.STROKE, CanvasSize = UDim2.new(),
         AutomaticCanvasSize = Enum.AutomaticSize.Y }, list)
     stack(sc, 2)
@@ -2550,15 +2558,31 @@ local function subMulti(body, pageName, value, rootCard, order, options, isOn, s
             animate(ob, { BackgroundColor3 = isOn(opt.value) and C.SELECTED or C.SIDE }, 0.1)
         end)
     end
+    local empty = text(sc, "Empty", "Nothing matches.", UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
+    empty.Visible = false
+    empty.LayoutOrder = 999
+    connect(filter:GetPropertyChangedSignal("Text"), function()
+        local q = string.lower(filter.Text)
+        local shown = 0
+        for i, opt in ipairs(options) do
+            local hit = string.find(string.lower(opt.value .. " " .. (opt.note or "")), q, 1, true) ~= nil
+            optionButtons[i].Visible = hit
+            if hit then shown = shown + 1 end
+        end
+        empty.Visible = shown == 0
+        sc.CanvasPosition = Vector2.zero
+    end)
     connect(list:GetPropertyChangedSignal("Visible"), function()
         animate(arrow, { Rotation = list.Visible and 180 or 0 }, 0.22)
         border.Color = list.Visible and C.ACCENT or C.STROKE
+        if not list.Visible then filter:ReleaseFocus() end
     end)
     connect(b.Activated, function()
         local was = list.Visible
         closeDD2()
         setList(not was)
         if not was then
+            filter.Text = ""
             paint()
             revealList(list, listHeight, pageName, r)
         end
