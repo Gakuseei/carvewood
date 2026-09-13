@@ -727,6 +727,7 @@ do
 
         local felled = false
         local t0 = os.clock()
+        local retried = false
         local lastHits, lastProgress = -1, os.clock()
         while getgenv().CW_Running and getgenv().CW_Trees do
             if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then
@@ -740,13 +741,17 @@ do
             local hits = tonumber(tree:GetAttribute("TreeChopHits")) or 0
             if hits ~= lastHits then
                 lastHits, lastProgress = hits, os.clock()
-            elseif os.clock() - lastProgress > 2 then
+            elseif os.clock() - lastProgress > 1.5 then
+                -- Kein Treffer mehr: Baum schon weg oder Axt haengt, einmal neu greifen.
+                if retried then break end
+                retried = true
                 axe = equipAxe() or axe
                 lastProgress = os.clock()
             end
-            -- Ein Schwung pro Servertakt, dicht genug fuer eine durchgehende Animation.
+            -- Andere Aufgaben legen Werkzeug ab, darum vor jedem Schwung pruefen.
+            if axe.Parent ~= LP.Character then axe = equipAxe() or axe end
             pcall(function() axe:Activate() end)
-            if os.clock() - t0 > 30 then break end
+            if os.clock() - t0 > 20 then break end
             task.wait(0.35)
         end
         if ctrl then ctrl.HeldInput = false end
@@ -810,14 +815,26 @@ task.spawn(function()
                             end
                         end
                     end)
-                    pcall(function()
-                        for _, d in ipairs(planterCache) do
-                            if not getgenv().CW_Trees then break end
-                            if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty" then
-                                if plantPrio(d) then didWork = true end
+                    -- Der Server setzt den Planter erst kurz nach dem Fall auf Empty,
+                    -- darum mehrere Runden statt eines einzelnen Durchgangs.
+                    for round = 1, 2 do
+                        local planted, pending = 0, 0
+                        pcall(function()
+                            for _, d in ipairs(planterCache) do
+                                if not getgenv().CW_Trees then break end
+                                if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty"
+                                    and tonumber(d:GetAttribute("PlanterIndex")) ~= 0 then
+                                    pending = pending + 1
+                                    if plantPrio(d) then
+                                        planted = planted + 1
+                                        didWork = true
+                                    end
+                                end
                             end
-                        end
-                    end)
+                        end)
+                        if pending == 0 or planted == pending then break end
+                        task.wait(0.35)
+                    end
                 end
                 if getgenv().CW_Fert then
                     pcall(function()
@@ -1116,7 +1133,6 @@ do
                         end
                         if waterCluster(rem, hum, group, spot) > 0 then didWork = true end
                     end
-                    if hum then pcall(function() hum:UnequipTools() end) end
                     if save and hrp() then pcall(function() Move.glide(hrp(), save) end) end
                     Move.release("water")
                 end
