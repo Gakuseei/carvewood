@@ -215,6 +215,20 @@ local function countWateringCans(targetMult)
     return n
 end
 
+-- Nur eine Aufgabe darf den Charakter gleichzeitig versetzen, sonst reissen sich
+-- Chop, Giessen und Shop den Spieler gegenseitig aus der Reichweite.
+local function claimMove(tag, seconds)
+    local now = os.clock()
+    if (getgenv().CW_MoveUntil or 0) > now and getgenv().CW_MoveTag ~= tag then return false end
+    getgenv().CW_MoveTag = tag
+    getgenv().CW_MoveUntil = now + (seconds or 5)
+    return true
+end
+
+local function releaseMove(tag)
+    if getgenv().CW_MoveTag == tag then getgenv().CW_MoveUntil = 0 end
+end
+
 local function hrp()
     local ch = LP.Character
     local h = ch and ch:FindFirstChild("HumanoidRootPart")
@@ -348,17 +362,20 @@ local function resolveRoute(route)
     return nil
 end
 
+-- Staerkste Axt gewinnt: Schaden mal Schlagtempo entscheidet, wie schnell ein Baum faellt.
 local function findAxe()
-    local ch = LP.Character
-    local doom = ch and ch:FindFirstChild("Axe of Doom") or LP.Backpack:FindFirstChild("Axe of Doom")
-    if doom then return doom end
-    local function scan(root)
-        for _, t in ipairs(root:GetChildren()) do
-            if t:IsA("Tool") and string.find(t.Name, "Axe", 1, true) then return t end
+    local best, bestScore
+    for _, root in ipairs({ LP.Character, LP.Backpack }) do
+        if root then
+            for _, t in ipairs(root:GetChildren()) do
+                if t:IsA("Tool") and (t:GetAttribute("AxeTool") or string.find(t.Name, "Axe", 1, true)) then
+                    local score = (tonumber(t:GetAttribute("AxeDamage")) or 1) * (tonumber(t:GetAttribute("AxeAttackSpeed")) or 1)
+                    if not bestScore or score > bestScore then best, bestScore = t, score end
+                end
+            end
         end
-        return nil
     end
-    return (ch and scan(ch)) or scan(LP.Backpack)
+    return best
 end
 
 local function woodChips()
@@ -399,9 +416,10 @@ local function plantPrio(planter)
     if typeof(pp) ~= "Vector3" then return nil end
     local dest = CFrame.new(pp + Vector3.new(0, 4, 6))
     -- Antwort-getrieben: bei "Move closer" neu TP + Retry, sonst Prio-Fallback.
+    if not claimMove("plant", 8) then return nil end
     for _ = 1, 4 do
         if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-        if not h.Parent then return nil end
+        if not h.Parent then break end
         pcall(function() h.CFrame = dest end)
         local needCloser = false
         for _, prio in ipairs({getgenv().CW_Prio1, getgenv().CW_Prio2, getgenv().CW_Prio3}) do
@@ -412,10 +430,12 @@ local function plantPrio(planter)
                 if ok and type(r) == "table" then
                     if r.Success == true then
                         getgenv().CW_LastTree = "planted " .. prio .. " " .. os.date("%H:%M:%S")
+                        releaseMove("plant")
                         return prio
                     end
                     local msg = tostring(r.Error or r.Message or "")
                     if string.find(msg, "ccupied", 1, true) or string.find(msg, "nvalid", 1, true) then
+                        releaseMove("plant")
                         return nil
                     end
                     if string.find(msg, "loser", 1, true) then
@@ -425,9 +445,10 @@ local function plantPrio(planter)
                 end
             end
         end
-        if not needCloser then return nil end
+        if not needCloser then break end
         task.wait()
     end
+    releaseMove("plant")
     return nil
 end
 
@@ -482,6 +503,7 @@ local function fertilizePlanter(planter)
     local dest = CFrame.new(pp + Vector3.new(0, 4, 6))
     local ch = LP.Character
     local wasEquipped = tool.Parent == ch
+    if not claimMove("fert", 8) then return false end
     pcall(function() tool.Parent = ch end)
     local done = false
     for _ = 1, 4 do
@@ -518,6 +540,7 @@ local function fertilizePlanter(planter)
             if tool.Parent == LP.Character then tool.Parent = LP.Backpack end
         end)
     end
+    releaseMove("fert")
     return done
 end
 
@@ -546,17 +569,67 @@ end
 
 -- Chop: sauber neben dem Stamm (unanchored, Server ignoriert Anchored-Hits),
 -- Position jeden Swing neu setzen. Swing-Takt folgt TreeChopSerial-Signal.
+-- Die Axt zaehlt erst als ausgeruestet, wenn sie direkt im Character haengt.
+-- Humanoid:EquipTool laesst den AxeController kalt, dann ignoriert der Server jeden Swing.
+local function equipAxe()
+    local ch = LP.Character
+    if not ch then return nil end
+    local axe = findAxe()
+    if not axe then return nil end
+    if axe.Parent ~= ch then
+        pcall(function() axe.Parent = ch end)
+        local t0 = os.clock()
+        while os.clock() - t0 < 1 do
+            if LP:GetAttribute("AxeEquipped") == true then break end
+            task.wait(0.05)
+        end
+    end
+    return axe
+end
+
+-- Drops liegen im ClientTreeDropEffects-Container, einsammeln heisst drueberfliegen.
+local function sweepDrops()
+    local h = hrp()
+    if not h then return end
+    local t0 = os.clock()
+    while os.clock() - t0 < 1 do
+        local c = dropContainer()
+        if c and #c:GetChildren() > 0 then break end
+        task.wait(0.05)
+    end
+    -- Aufsammeln passiert im Vorbeiflug, darum nur kurz auf jeder Fundstelle verweilen.
+    for _ = 1, 8 do
+        if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
+        local spots = {}
+        pcall(function()
+            local c = dropContainer()
+            if not c then return end
+            for _, d in ipairs(c:GetChildren()) do
+                if string.find(d.Name, "Drop", 1, true) then
+                    local p = dropPos(d)
+                    if p then spots[#spots + 1] = p end
+                end
+            end
+        end)
+        if #spots == 0 then break end
+        for _, pos in ipairs(spots) do
+            pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0)) end)
+            task.wait(0.12)
+        end
+        task.wait(0.15)
+    end
+end
+
+-- Swingen im Servertakt: Activate feuern, Blickrichtung halten, auf das Fallen warten.
 local function chopAndCollect(tree)
     local h = hrp()
-    if not h then return false end
-    local axe = findAxe()
+    local axe = h and equipAxe()
     if not axe then return false end
+    if not claimMove("chop", 35) then return false end
     local tp
     pcall(function() tp = tree:GetPivot().Position end)
     if typeof(tp) ~= "Vector3" then return false end
-    -- Unanchored lassen (Server ignoriert AxeHit bei Anchored-HRP).
-    -- Sauber NEBEN dem Stamm stehen, Position jeden Swing neu setzen.
-    local away = (h.Position - tp)
+    local away = h.Position - tp
     away = Vector3.new(away.X, 0, away.Z)
     if away.Magnitude < 1 then away = Vector3.new(1, 0, 1) end
     local stand = tp + away.Unit * 5 + Vector3.new(0, 4, 0)
@@ -565,114 +638,41 @@ local function chopAndCollect(tree)
         h.Anchored = false
         h.CFrame = CFrame.lookAt(stand, aim)
     end)
-    task.wait()
-    local ch = LP.Character
-    if axe.Parent ~= ch then
-        pcall(function() axe.Parent = ch end)
-        task.wait()
-    end
-    -- Nativ: nächster Swing erst nach registriertem Hit (TreeChopSerial).
-    -- Tempo kalibriert sich pro Axt selbst (est). Keine festen Swing-Zeiten.
+    task.wait(0.1)
+
     local felled = false
-    local est = 0.6
-    local misses = 0
+    local t0 = os.clock()
+    local lastHits, lastProgress = -1, os.clock()
     while getgenv().CW_Running and getgenv().CW_Trees do
-        if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true break end
-        local serial0 = tree:GetAttribute("TreeChopSerial") or 0
-        local tA = os.clock()
+        if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then
+            felled = true
+            break
+        end
         pcall(function()
             h.CFrame = CFrame.lookAt(stand, aim)
             axe:Activate()
         end)
-        local hit = false
-        while os.clock() - tA < 2.5 do
-            task.wait(0.05)
-            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-            if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true break end
-            if (tree:GetAttribute("TreeChopSerial") or 0) ~= serial0 then hit = true break end
+        task.wait(0.15)
+        local hits = tonumber(tree:GetAttribute("TreeChopHits")) or 0
+        if hits ~= lastHits then
+            lastHits, lastProgress = hits, os.clock()
+        elseif os.clock() - lastProgress > 3 then
+            axe = equipAxe()
+            lastProgress = os.clock()
+            if not axe or os.clock() - t0 > 25 then break end
         end
-        if felled then break end
-        if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-        if hit then
-            est = math.max(0.25, os.clock() - tA)
-            misses = 0
-        else
-            misses = misses + 1
-            if misses == 5 then
-                pcall(function()
-                    h.CFrame = CFrame.lookAt(stand, aim)
-                    if axe.Parent ~= LP.Character then axe.Parent = LP.Character end
-                end)
-                task.wait()
-            elseif misses >= 10 then
-                break
-            end
-        end
-        local gap = est * 0.9 - (os.clock() - tA)
-        while gap > 0 do
-            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-            if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true break end
-            task.wait(0.05)
-            gap = est * 0.9 - (os.clock() - tA)
-        end
-        if felled then break end
+        if os.clock() - t0 > 30 then break end
     end
     if tree.Parent == nil or tree:GetAttribute("TreeFelling") == true then felled = true end
+
     if felled then
-        -- Drops liegen in ClientTreeDropEffects_<uid> (*Drop-Models).
-        -- Jedes einzeln per Position einsammeln bis der Container leer ist.
         local chips0, logs0 = woodChips(), countLogs()
-        local names = {}
-        local visited = {}
-        -- Nativ: auf Drops warten, pro Drop warten bis er weg ist (eingesammelt).
-        local tC0 = os.clock()
-        while os.clock() - tC0 < 10 do
-            local any = false
-            pcall(function()
-                local c = dropContainer()
-                any = c and #c:GetChildren() > 0
-            end)
-            if any then break end
-            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-            task.wait(0.2)
-        end
-        for _ = 1, 40 do
-            if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-            local target, pos = nil, nil
-            pcall(function()
-                local c = dropContainer()
-                if c then
-                    for _, d in ipairs(c:GetChildren()) do
-                        if string.find(d.Name, "Drop", 1, true) then
-                            local p = dropPos(d)
-                            if p then
-                                local seen = false
-                                for _, v in ipairs(visited) do
-                                    if (v - p).Magnitude < 7 then seen = true break end
-                                end
-                                if not seen then target, pos = d, p break end
-                            end
-                        end
-                    end
-                end
-            end)
-            if not target then break end
-            if #names < 12 then names[#names + 1] = target.Name end
-            visited[#visited + 1] = pos
-            pcall(function() h.CFrame = CFrame.new(pos + Vector3.new(0, 4, 0)) end)
-            local tG0 = os.clock()
-            while os.clock() - tG0 < 3 do
-                local gone = true
-                pcall(function() gone = (not target.Parent) end)
-                if gone then break end
-                if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-                task.wait(0.1)
-            end
-        end
+        sweepDrops()
         local got = (woodChips() - chips0) + (countLogs() - logs0)
-        getgenv().CW_LastTree = "chopped+" .. tostring(got) .. " [" .. table.concat(names, ",") .. "] " .. os.date("%H:%M:%S")
+        getgenv().CW_LastTree = "chopped+" .. tostring(got) .. " " .. os.date("%H:%M:%S")
+        getgenv().CW_Chopped = (getgenv().CW_Chopped or 0) + 1
     end
-    if felled then getgenv().CW_Chopped = (getgenv().CW_Chopped or 0) + 1 end
+    releaseMove("chop")
     return felled
 end
 
@@ -710,14 +710,7 @@ task.spawn(function()
                     end)
                 end
                 if getgenv().CW_Trees then
-                    pcall(function()
-                        for _, d in ipairs(planterCache) do
-                            if not getgenv().CW_Trees then break end
-                            if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty" then
-                                if plantPrio(d) then didWork = true end
-                            end
-                        end
-                    end)
+                    -- Alle reifen Baeume in einem Durchgang, danach erst wieder pflanzen.
                     pcall(function()
                         local CS = game:GetService("CollectionService")
                         for _, t in ipairs(CS:GetTagged("ChoppableTree")) do
@@ -726,7 +719,14 @@ task.spawn(function()
                                 and t:GetAttribute("TreeFelling") ~= true
                                 and prios[tostring(t:GetAttribute("TreeType"))] then
                                 if chopAndCollect(t) then didWork = true end
-                                break
+                            end
+                        end
+                    end)
+                    pcall(function()
+                        for _, d in ipairs(planterCache) do
+                            if not getgenv().CW_Trees then break end
+                            if d.Parent and d:GetAttribute("TreePlanterStatus") == "Empty" then
+                                if plantPrio(d) then didWork = true end
                             end
                         end
                     end)
@@ -744,7 +744,7 @@ task.spawn(function()
                 if save then pcall(function() local h = hrp() if h then h.CFrame = save end end) end
             end
         end
-        task.wait(didWork and 2 or 8)
+        task.wait(didWork and 0.4 or 5)
     end
 end)
 
@@ -905,7 +905,7 @@ do
             local didWork = false
             if getgenv().CW_Shop or getgenv().CW_ShopRoll then
                 local gs = gemStore()
-                if gs then
+                if gs and claimMove("shop", 25) then
                     local h = hrp()
                     local save = h and h.CFrame
                     shopHalted = false
@@ -926,6 +926,7 @@ do
                     if save and not getgenv().CW_ShopStay then
                         pcall(function() local h2 = hrp() if h2 then h2.CFrame = save end end)
                     end
+                    releaseMove("shop")
                 end
             end
             task.wait(didWork and 0.1 or 1.5)
@@ -987,6 +988,10 @@ do
                         if not (getgenv().CW_Running and getgenv().CW_Water) then break end
                         local can = pickCan()
                         if not can or not hum then break end
+                        if not claimMove("water", 6) then
+                            task.wait(0.3)
+                            break
+                        end
                         pcall(function() hum:EquipTool(can) end)
                         task.wait(0.12)
                         local pos
@@ -1009,6 +1014,7 @@ do
                     end
                     if hum then pcall(function() hum:UnequipTools() end) end
                     if save and hrp() then pcall(function() hrp().CFrame = save end) end
+                    releaseMove("water")
                 end
             end
             task.wait(didWork and 0.2 or 1)
