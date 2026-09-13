@@ -1943,6 +1943,8 @@ task.spawn(function()
             if tr then tr.Text = tostring(getgenv().CW_Chopped or 0) end
             local bu = g:FindFirstChild("CWValBuys", true)
             if bu then bu.Text = tostring(getgenv().CW_ShopBought or 0) end
+            local wa = g:FindFirstChild("CWValWater", true)
+            if wa then wa.Text = tostring(getgenv().CW_Watered or 0) end
             local sb = g:FindFirstChild("CWSubPhase", true)
             if sb then sb.Text = getgenv().CW_Farm and "Farm seeds is running" or "Farm seeds is off" end
         end)
@@ -2889,10 +2891,11 @@ do
     outline(strip)
     local cells = {}
     for i, d in ipairs({{"Runtime", "CWValTime", "0s"}, {"Rerolls", "CWValRolls", "0"},
-        {"Chopped", "CWValTrees", "0"}, {"Bought", "CWValBuys", "0"}}) do
-        local cell = frame(strip, d[2] .. "Cell", UDim2.new(0.25, 0, 1, 0), UDim2.new((i - 1) / 4, 0, 0, 0))
-        text(cell, "Label", d[1], UDim2.new(1, -22, 0, 20), UDim2.fromOffset(18, 13), 15, C.MUT)
-        local valueLabel = text(cell, d[2], d[3], UDim2.new(1, -22, 0, 34), UDim2.fromOffset(18, 36), 26, i == 1 and C.ACCENT or C.TXT, true, true)
+        {"Chopped", "CWValTrees", "0"}, {"Watered", "CWValWater", "0"},
+        {"Bought", "CWValBuys", "0"}}) do
+        local cell = frame(strip, d[2] .. "Cell", UDim2.new(0.2, 0, 1, 0), UDim2.new((i - 1) / 5, 0, 0, 0))
+        text(cell, "Label", d[1], UDim2.new(1, -18, 0, 20), UDim2.fromOffset(14, 13), 14, C.MUT)
+        local valueLabel = text(cell, d[2], d[3], UDim2.new(1, -18, 0, 34), UDim2.fromOffset(14, 36), 22, i == 1 and C.ACCENT or C.TXT, true, true)
         local resting = i == 1 and C.ACCENT or C.TXT
         local shown = valueLabel.Text
         painters[#painters + 1] = function()
@@ -2908,12 +2911,12 @@ do
         cells[i] = cell
     end
     local function fit()
-        local narrow = strip.AbsoluteSize.X < 440
-        strip.Size = UDim2.new(1, 0, 0, narrow and 172 or 86)
+        local narrow = strip.AbsoluteSize.X < 460
+        strip.Size = UDim2.new(1, 0, 0, narrow and math.ceil(#cells / 2) * 86 or 86)
         for i, cell in ipairs(cells) do
-            cell.Size = narrow and UDim2.new(0.5, 0, 0, 86) or UDim2.new(0.25, 0, 1, 0)
+            cell.Size = narrow and UDim2.new(0.5, 0, 0, 86) or UDim2.new(0.2, 0, 1, 0)
             cell.Position = narrow and UDim2.new(((i - 1) % 2) * 0.5, 0, 0, math.floor((i - 1) / 2) * 86)
-                or UDim2.new((i - 1) / 4, 0, 0, 0)
+                or UDim2.new((i - 1) / 5, 0, 0, 0)
             local sep = cell:FindFirstChild("Sep")
             if sep then sep.Visible = not narrow or i % 2 == 0 end
         end
