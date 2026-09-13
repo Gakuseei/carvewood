@@ -242,6 +242,7 @@ do
     end
 end
 
+local waterPass
 local function hrp()
     local ch = LP.Character
     local h = ch and ch:FindFirstChild("HumanoidRootPart")
@@ -837,6 +838,10 @@ task.spawn(function()
                         if pending == 0 or planted == pending then break end
                         task.wait(0.35)
                     end
+                    -- Zum Schluss noch giessen, dann ist der Durchgang komplett.
+                    if getgenv().CW_Water and waterPass then
+                        if waterPass() then didWork = true end
+                    end
                 end
                 if getgenv().CW_Fert then
                     pcall(function()
@@ -1100,51 +1105,60 @@ do
         return done
     end
 
+    -- Eine geschlossene Giessrunde: alle durstigen Planter, gruppenweise, dann zurueck.
+    waterPass = function()
+        if not getgenv().CW_Water then return false end
+        local rem = waterRemote()
+        local ty = rem and myTycoon()
+        if not ty then return false end
+        if not pickCan() then
+            getgenv().CW_WaterNote = "no " .. tostring(getgenv().CW_WaterCan) .. "x cans left"
+            return false
+        end
+        getgenv().CW_WaterNote = nil
+        local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+        if not hum then return false end
+        local h = hrp()
+        local save = h and h.CFrame
+        local thirsty = {}
+        pcall(function()
+            for _, d in ipairs(ty:GetDescendants()) do
+                if d:GetAttribute("TreePlanter") == true and needsWater(d) then
+                    local ok, pos = pcall(function() return d:GetPivot().Position end)
+                    if ok and typeof(pos) == "Vector3" then
+                        thirsty[#thirsty + 1] = { planter = d, pos = pos }
+                    end
+                end
+            end
+        end)
+        if #thirsty == 0 then return false end
+        local did = false
+        while #thirsty > 0 do
+            if not (getgenv().CW_Running and getgenv().CW_Water) then break end
+            local anchor = table.remove(thirsty, 1)
+            local group, spot = { anchor.planter }, anchor.pos
+            local i = 1
+            while i <= #thirsty do
+                if (thirsty[i].pos - anchor.pos).Magnitude <= 26 then
+                    group[#group + 1] = table.remove(thirsty, i).planter
+                else
+                    i = i + 1
+                end
+            end
+            if waterCluster(rem, hum, group, spot) > 0 then did = true end
+        end
+        if save and hrp() then pcall(function() Move.glide(hrp(), save) end) end
+        Move.release("water")
+        return did
+    end
+
+    -- Laeuft der Baum-Zyklus, ruft der die Giessrunde selbst auf, damit sich die
+    -- Phasen nicht ins Gehege kommen.
     task.spawn(function()
         while getgenv().CW_Running and getgenv().CW_Gen == myGen do
             local didWork = false
-            if getgenv().CW_Water then
-                local rem = waterRemote()
-                local ty = rem and myTycoon()
-                -- Ohne passende Kanne bleibt der Spieler stehen, statt sinnlos zu springen.
-                if ty and not pickCan() then
-                    getgenv().CW_WaterNote = "no " .. tostring(getgenv().CW_WaterCan) .. "x cans left"
-                    ty = nil
-                elseif ty then
-                    getgenv().CW_WaterNote = nil
-                end
-                if ty then
-                    local h = hrp()
-                    local save = h and h.CFrame
-                    local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-                    local thirsty = {}
-                    pcall(function()
-                        for _, d in ipairs(ty:GetDescendants()) do
-                            if d:GetAttribute("TreePlanter") == true and needsWater(d) then
-                                local ok, pos = pcall(function() return d:GetPivot().Position end)
-                                if ok and typeof(pos) == "Vector3" then
-                                    thirsty[#thirsty + 1] = { planter = d, pos = pos }
-                                end
-                            end
-                        end
-                    end)
-                    while #thirsty > 0 and hum do
-                        if not (getgenv().CW_Running and getgenv().CW_Water) then break end
-                        local anchor = table.remove(thirsty, 1)
-                        local group, spot = { anchor.planter }, anchor.pos
-                        local i = 1
-                        while i <= #thirsty do
-                            if (thirsty[i].pos - anchor.pos).Magnitude <= 26 then
-                                group[#group + 1] = table.remove(thirsty, i).planter
-                            else
-                                i = i + 1
-                            end
-                        end
-                        if waterCluster(rem, hum, group, spot) > 0 then didWork = true end
-                    end
-                    if save and hrp() then pcall(function() Move.glide(hrp(), save) end) end
-                    Move.release("water")
-                end
+            if getgenv().CW_Water and not getgenv().CW_Trees then
+                didWork = waterPass()
             end
             task.wait(didWork and 0.3 or 1.5)
         end
