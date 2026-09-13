@@ -2558,10 +2558,44 @@ if type(STATE) == "table" and STATE.onCleanup then
 end
 fitViewport()
 showPage()
+-- Erster Start zeigt kurz die Wortmarke, danach wächst das Fenster auf.
 do
     local target = main.Size
-    main.Size = UDim2.fromOffset(target.X.Offset - 26, target.Y.Offset - 18)
-    animate(main, { Size = target }, 0.3)
+    local function grow()
+        main.Visible = true
+        main.Size = UDim2.fromOffset(target.X.Offset - 30, target.Y.Offset - 22)
+        animate(main, { Size = target }, 0.32)
+    end
+    if getgenv().CW_Splashed then
+        grow()
+    else
+        getgenv().CW_Splashed = true
+        main.Visible = false
+        local splash = make("CanvasGroup", { Name = "Splash", Size = UDim2.fromOffset(300, 136),
+            Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = SIDE, BorderSizePixel = 0, GroupTransparency = 1 }, gui)
+        round(splash, 16)
+        outline(splash)
+        local mark = icon(splash, "Brand", UDim2.new(0.5, -18, 0, 24), ACCENT, 36)
+        local word = text(splash, "Word", "CarveWood", UDim2.new(1, 0, 0, 26), UDim2.fromOffset(0, 72), 22, TXT, true, true)
+        word.TextXAlignment = Enum.TextXAlignment.Center
+        local rail = frame(splash, "Rail", UDim2.fromOffset(160, 2), UDim2.new(0.5, -80, 0, 110), CTRL)
+        round(rail, 1)
+        local fill = frame(rail, "Fill", UDim2.new(0, 0, 1, 0), nil, ACCENT)
+        round(fill, 1)
+        mark.Position = UDim2.new(0.5, -18, 0, 32)
+        animate(splash, { GroupTransparency = 0 }, 0.24)
+        animate(mark, { Position = UDim2.new(0.5, -18, 0, 24) }, 0.4)
+        animate(fill, { Size = UDim2.new(1, 0, 1, 0) }, 0.9, Enum.EasingStyle.Quad)
+        task.delay(1.05, function()
+            if not gui.Parent then return end
+            animate(splash, { GroupTransparency = 1 }, 0.24)
+            task.delay(0.24, function()
+                splash:Destroy()
+                if gui.Parent then grow() end
+            end)
+        end)
+    end
 end
 local STATUS_NAMES = {
     {"CW_Farm", "Seed farm"}, {"CW_Trees", "Trees"}, {"CW_Frenzy", "Frenzy"},
