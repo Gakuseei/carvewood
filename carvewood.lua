@@ -604,7 +604,7 @@ do
 
     -- Drops liegen im ClientTreeDropEffects-Container, einsammeln heisst drueberfliegen.
     local sweepDrops
-        sweepDrops = function()
+    sweepDrops = function()
         local h = hrp()
         if not h then return end
         local t0 = os.clock()
@@ -613,41 +613,51 @@ do
             if c and #c:GetChildren() > 0 then break end
             task.wait(0.05)
         end
-        -- Erst in die Mitte der Drops stellen, das holt meistens schon alles.
-        for _ = 1, 2 do
+        -- Drops duerfen bis 48 Studs von ihrem Ursprung gemeldet werden, also holt
+        -- der Script sie in den Aufsammelradius statt jeden einzeln anzufliegen.
+        local anchor = h.Position
+        for _ = 1, 40 do
             if not (getgenv().CW_Running and getgenv().CW_Trees) then break end
-            local spots = {}
+            local pulled, left = 0, 0
             pcall(function()
                 local c = dropContainer()
                 if not c then return end
                 for _, d in ipairs(c:GetChildren()) do
                     if string.find(d.Name, "Drop", 1, true) then
-                        local p = dropPos(d)
-                        if p then spots[#spots + 1] = p end
+                        left = left + 1
+                        local pos = dropPos(d)
+                        if pos and (pos - anchor).Magnitude < 42 then
+                            local target = CFrame.new(anchor + Vector3.new(0, -1.5, 0))
+                            if d:IsA("Model") then
+                                d:PivotTo(target)
+                            elseif d:IsA("BasePart") then
+                                d.CFrame = target
+                            end
+                            pulled = pulled + 1
+                        end
                     end
                 end
             end)
-            if #spots == 0 then break end
-            local mid = Vector3.zero
-            for _, pos in ipairs(spots) do mid = mid + pos end
-            mid = mid / #spots
-            pcall(function() Move.glide(h, CFrame.new(mid + Vector3.new(0, 3, 0))) end)
-            task.wait(0.3)
-            local left = {}
-            pcall(function()
-                local c = dropContainer()
-                if not c then return end
-                for _, d in ipairs(c:GetChildren()) do
-                    if string.find(d.Name, "Drop", 1, true) then
-                        local p = dropPos(d)
-                        if p then left[#left + 1] = p end
+            if left == 0 then break end
+            task.wait(0.08)
+            if pulled == 0 then
+                local spots = {}
+                pcall(function()
+                    local c = dropContainer()
+                    if not c then return end
+                    for _, d in ipairs(c:GetChildren()) do
+                        if string.find(d.Name, "Drop", 1, true) then
+                            local pos = dropPos(d)
+                            if pos then spots[#spots + 1] = pos end
+                        end
                     end
+                end)
+                if #spots == 0 then break end
+                for _, pos in ipairs(spots) do
+                    pcall(function() Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 0))) end)
+                    task.wait(0.12)
                 end
-            end)
-            if #left == 0 then break end
-            for _, pos in ipairs(left) do
-                pcall(function() Move.glide(h, CFrame.new(pos + Vector3.new(0, 3, 0))) end)
-                task.wait(0.08)
+                anchor = h.Position
             end
         end
     end
