@@ -1361,6 +1361,12 @@ do
                 and allowed(getgenv().CW_CustStyles, style)
             pcall(function() rem:FireServer({ OfferId = p.OfferId, Accepted = take }) end)
             getgenv().CW_LastOffer = ("%s%d%% %s"):format(pct >= 0 and "+" or "", pct, style)
+            local seen = getgenv().CW_OfferSeen
+            if type(seen) ~= "table" then
+                seen = {}
+                getgenv().CW_OfferSeen = seen
+            end
+            if pct > (seen[style] or -1000) then seen[style] = pct end
             if take then
                 getgenv().CW_Sold = (getgenv().CW_Sold or 0) + 1
             else
@@ -2751,8 +2757,10 @@ local function subChoice(body, pageName, value, rootCard, order, options, get, s
 end
 
 -- Zeile mit Zahlenfeld, nimmt nur Ziffern.
-local function subSlider(body, pageName, value, rootCard, order, lo, hi, step, get, set)
+-- Die Stufen sind ungleich verteilt, weil Alien-Angebote weit ueber dem Normalbereich liegen.
+local function subSlider(body, pageName, value, rootCard, order, stops, get, set)
     local r = subRow(body, pageName, value, rootCard, order)
+    local lo, hi = stops[1], stops[#stops]
     local val = text(r, "Val", "", UDim2.fromOffset(70, 20), UDim2.new(1, -236, 0.5, -10), 15, C.ACCENT, true)
     val.TextXAlignment = Enum.TextXAlignment.Right
     local hit = button(r, "Track", UDim2.fromOffset(160, 34), UDim2.new(1, -2, 0.5, 0))
@@ -2766,7 +2774,14 @@ local function subSlider(body, pageName, value, rootCard, order, lo, hi, step, g
     outline(knob, C.ACCENT)
     local function paint()
         local v = math.clamp(tonumber(get()) or lo, lo, hi)
-        local a = (v - lo) / (hi - lo)
+        local idx = #stops
+        for i, stop in ipairs(stops) do
+            if v <= stop then
+                idx = i
+                break
+            end
+        end
+        local a = (idx - 1) / (#stops - 1)
         fill.Size = UDim2.new(a, 0, 1, 0)
         knob.Position = UDim2.new(a, -8, 0.5, -8)
         val.Text = (v > 0 and "+" or "") .. tostring(v) .. "%"
@@ -2774,7 +2789,7 @@ local function subSlider(body, pageName, value, rootCard, order, lo, hi, step, g
     local function apply(x)
         local w = math.max(1, hit.AbsoluteSize.X)
         local a = math.clamp((x - hit.AbsolutePosition.X) / w, 0, 1)
-        set(math.clamp(math.floor((lo + a * (hi - lo)) / step + 0.5) * step, lo, hi))
+        set(stops[math.floor(a * (#stops - 1) + 1.5)])
         paint()
     end
     local dragging = false
@@ -3120,14 +3135,30 @@ do
     toggle(ec.head,
         function() return getgenv().CW_Customers end,
         function(v) getgenv().CW_Customers = v end, -70)
-    subSlider(ec.body, "Sell Zone", "Minimum offer", ec, 6, -20, 100, 5,
+    subSlider(ec.body, "Sell Zone", "Minimum offer", ec, 6, {
+        -20, -10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100,
+        125, 150, 200, 250, 300, 400, 500, 600, 800, 1000, 1250, 1500, 2000, 2500,
+    },
         function() return getgenv().CW_CustMin end,
         function(v) getgenv().CW_CustMin = v end)
+    local seenLine = text(ec.body, "Seen", "", UDim2.new(1, 0, 0, 40), UDim2.new(), 14, C.MUT)
+    seenLine.LayoutOrder = 8
+    seenLine.TextWrapped = true
+    seenLine.TextTruncate = Enum.TextTruncate.None
+    painters[#painters + 1] = function()
+        local seen = getgenv().CW_OfferSeen or {}
+        local parts = {}
+        for _, style in ipairs({ "Normal", "Gold", "Rainbow", "Alien" }) do
+            local best = seen[style]
+            parts[#parts + 1] = style .. " " .. (best and ((best > 0 and "+" or "") .. best .. "%") or "n/a")
+        end
+        seenLine.Text = "Best seen this session: " .. table.concat(parts, ", ")
+    end
     local styleOpts = {
-        { value = "Normal", note = "up to +40%" },
-        { value = "Gold", note = "gold frenzy and VIP" },
-        { value = "Rainbow", note = "rainbow frenzy" },
-        { value = "Alien", note = "alien invasion" },
+        { value = "Normal", note = "base roll, around +70% top end" },
+        { value = "Gold", note = "gold frenzy and VIP, starts at +30%" },
+        { value = "Rainbow", note = "rainbow frenzy, 5x base, starts at +100%" },
+        { value = "Alien", note = "alien invasion, 15x base, past +2000%" },
     }
     subMulti(ec.body, "Sell Zone", "Offer types", ec, 10, styleOpts,
         function(label)
@@ -3144,7 +3175,7 @@ do
         end)
 end
 do
-    local help = text(pages["Sell Zone"], "CarveHelp", "Auto carve takes every wood while nothing is picked, auto shelf only what you tick. Offers show their bonus in percent, gold starts at +30, rainbow at +100, alien at +1400.",
+    local help = text(pages["Sell Zone"], "CarveHelp", "Auto carve takes every wood while nothing is picked, auto shelf only what you tick. Anything under the minimum offer gets declined right away.",
         UDim2.new(1, 0, 0, 44), UDim2.new(), 14, C.MUT)
     help.LayoutOrder = 7
     help.TextWrapped = true
