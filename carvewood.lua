@@ -597,20 +597,29 @@ end
 
 -- Chop: sauber neben dem Stamm (unanchored, Server ignoriert Anchored-Hits),
 -- Position jeden Swing neu setzen. Swing-Takt folgt TreeChopSerial-Signal.
-local equipAxe, chopAndCollect
+local equipAxe, axeReady, chopAndCollect
 do
+    axeReady = function(axe)
+        return axe ~= nil and axe.Parent == LP.Character and LP:GetAttribute("AxeEquipped") == true
+    end
+
     -- Die Axt zaehlt erst als ausgeruestet, wenn sie direkt im Character haengt.
     -- Humanoid:EquipTool laesst den AxeController kalt, dann ignoriert der Server jeden Swing.
+    -- Beim Seed-Farmen wandern staendig Samen in die Hand, die muessen vorher raus.
     equipAxe = function()
         local ch = LP.Character
         if not ch then return nil end
         local axe = findAxe()
         if not axe then return nil end
-        if axe.Parent ~= ch then
+        for _ = 1, 3 do
+            if axeReady(axe) then return axe end
+            for _, t in ipairs(ch:GetChildren()) do
+                if t:IsA("Tool") and t ~= axe then pcall(function() t.Parent = LP.Backpack end) end
+            end
             pcall(function() axe.Parent = ch end)
             local t0 = os.clock()
-            while os.clock() - t0 < 1 do
-                if LP:GetAttribute("AxeEquipped") == true then break end
+            while os.clock() - t0 < 0.6 do
+                if axeReady(axe) then return axe end
                 task.wait(0.05)
             end
         end
@@ -735,6 +744,7 @@ do
         end)
         Move.glide(h, pose)
         task.wait(0.08)
+        if not axeReady(axe) then axe = equipAxe() or axe end
 
         local ctrl = axeController()
         if ctrl then ctrl.HeldInput = true end
@@ -763,8 +773,8 @@ do
                 axe = equipAxe() or axe
                 lastProgress = os.clock()
             end
-            -- Andere Aufgaben legen Werkzeug ab, darum vor jedem Schwung pruefen.
-            if axe.Parent ~= LP.Character then axe = equipAxe() or axe end
+            -- Seeds und andere Aufgaben draengen die Axt aus der Hand, also vor jedem Schwung pruefen.
+            if not axeReady(axe) then axe = equipAxe() or axe end
             pcall(function() axe:Activate() end)
             if os.clock() - t0 > 20 then break end
             task.wait(0.35)
@@ -3155,10 +3165,10 @@ do
         seenLine.Text = "Best seen this session: " .. table.concat(parts, ", ")
     end
     local styleOpts = {
-        { value = "Normal", note = "base roll, around +70% top end" },
-        { value = "Gold", note = "gold frenzy and VIP, starts at +30%" },
-        { value = "Rainbow", note = "rainbow frenzy, 5x base, starts at +100%" },
-        { value = "Alien", note = "alien invasion, 15x base, past +2000%" },
+        { value = "Normal", note = "base roll, cashier scale -20% to +40%" },
+        { value = "Gold", note = "gold frenzy or VIP, at least +30%" },
+        { value = "Rainbow", note = "rainbow frenzy, at least +100%, 5x base" },
+        { value = "Alien", note = "alien invasion, 15x base" },
     }
     subMulti(ec.body, "Sell Zone", "Offer types", ec, 10, styleOpts,
         function(label)
