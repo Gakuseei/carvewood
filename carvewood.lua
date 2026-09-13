@@ -1426,7 +1426,7 @@ end
 local function text(owner, name, value, size, pos, fontSize, color, bold, display)
     return make("TextLabel", { Name = name, Text = value, Size = size, Position = pos,
         BackgroundTransparency = 1, FontFace = face(bold and W.SemiBold or W.Regular, display),
-        TextSize = fontSize or 15, TextColor3 = color or TXT, LineHeight = 1.08,
+        TextSize = fontSize or 15, TextColor3 = color or TXT,
         TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd }, owner)
 end
 -- Klickton liegt als Datei beim Script, der Executor mappt sie auf eine Asset-Url.
@@ -1700,7 +1700,7 @@ local function navItem(info, order)
     b.LayoutOrder = order
     round(b, 10)
     icon(b, name, UDim2.fromOffset(13, 13), MUT, 20)
-    text(b, "Label", name, UDim2.new(1, -50, 1, 0), UDim2.fromOffset(45, 0), 17, MUT, true)
+    text(b, "Label", name, UDim2.new(1, -50, 1, 0), UDim2.fromOffset(45, 0), 18, MUT, true)
     navBtns[name] = b
     press(b, SIDE)
     connect(b.Activated, function() navigate(name) end)
