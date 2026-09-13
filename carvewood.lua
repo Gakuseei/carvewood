@@ -20,6 +20,9 @@ getgenv().CW_CollectCan = getgenv().CW_CollectCan or false
 getgenv().CW_CollectFert = getgenv().CW_CollectFert or false
 getgenv().CW_Trees = getgenv().CW_Trees or false
 getgenv().CW_Fert = getgenv().CW_Fert or false
+getgenv().CW_Water = getgenv().CW_Water or false
+getgenv().CW_WaterCan = getgenv().CW_WaterCan or 64
+getgenv().CW_Watered = getgenv().CW_Watered or 0
 getgenv().CW_Prio1 = getgenv().CW_Prio1 or "Hyperwave"
 getgenv().CW_Prio2 = getgenv().CW_Prio2 or "Voidstar"
 getgenv().CW_Prio3 = getgenv().CW_Prio3 or "Birch"
@@ -926,6 +929,89 @@ do
                 end
             end
             task.wait(didWork and 0.1 or 1.5)
+        end
+    end)
+end
+
+local CW_CAN_MULTS = {1, 2, 4, 8, 16, 32, 64, 128, 256}
+do
+    local routeId
+    local function waterRemote()
+        if not routeId then routeId = resolveRoute("WaterPlanterWithEquippedCan") end
+        if not routeId then return nil end
+        local rem = game:GetService("ReplicatedStorage"):FindFirstChild("REM", true)
+        rem = rem and rem:FindFirstChild(routeId)
+        if not rem then routeId = nil end
+        return rem
+    end
+
+    local function pickCan()
+        local want = tonumber(getgenv().CW_WaterCan) or 64
+        local ch = LP.Character
+        for _, root in ipairs({ ch, LP.Backpack }) do
+            if root then
+                for _, t in ipairs(root:GetChildren()) do
+                    if t:IsA("Tool") and t:GetAttribute("WateringCanMultiplier") == want then return t end
+                end
+            end
+        end
+        return nil
+    end
+
+    -- Der Boost läuft 60s und die Kanne wird dabei verbraucht, darum kurz vor Ablauf nachgießen.
+    local function needsWater(planter)
+        if planter:GetAttribute("TreePlanterStatus") ~= "Growing" then return false end
+        local ends = tonumber(planter:GetAttribute("TreeWateringBoostEndsAt"))
+        return not ends or ends - os.time() <= 2
+    end
+
+    task.spawn(function()
+        while getgenv().CW_Running and getgenv().CW_Gen == myGen do
+            local didWork = false
+            if getgenv().CW_Water then
+                local rem = waterRemote()
+                local ty = rem and myTycoon()
+                if ty then
+                    local h = hrp()
+                    local save = h and h.CFrame
+                    local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+                    local thirsty = {}
+                    pcall(function()
+                        for _, d in ipairs(ty:GetDescendants()) do
+                            if d:GetAttribute("TreePlanter") == true and needsWater(d) then
+                                thirsty[#thirsty + 1] = d
+                            end
+                        end
+                    end)
+                    for _, planter in ipairs(thirsty) do
+                        if not (getgenv().CW_Running and getgenv().CW_Water) then break end
+                        local can = pickCan()
+                        if not can or not hum then break end
+                        pcall(function() hum:EquipTool(can) end)
+                        task.wait(0.25)
+                        local pos
+                        pcall(function() pos = planter:GetPivot().Position end)
+                        if typeof(pos) == "Vector3" and hrp() then
+                            pcall(function() hrp().CFrame = CFrame.new(pos + Vector3.new(0, 3, 6), pos) end)
+                            task.wait(0.3)
+                            local ok, r = pcall(function()
+                                return rem:InvokeServer({
+                                    PlanterIndex = planter:GetAttribute("PlanterIndex"),
+                                    ItemId = can:GetAttribute("WateringCanItemId"),
+                                })
+                            end)
+                            if ok and type(r) == "table" and r.Success == true then
+                                getgenv().CW_Watered = (getgenv().CW_Watered or 0) + 1
+                                didWork = true
+                            end
+                            task.wait(0.15)
+                        end
+                    end
+                    if hum then pcall(function() hum:UnequipTools() end) end
+                    if save and hrp() then pcall(function() hrp().CFrame = save end) end
+                end
+            end
+            task.wait(didWork and 0.4 or 3)
         end
     end)
 end
@@ -2301,6 +2387,16 @@ do
     subToggle(ec.body, "Trees", "Auto fertilize", ec, 10,
         function() return getgenv().CW_Fert end,
         function(v) getgenv().CW_Fert = v end)
+    subToggle(ec.body, "Trees", "Auto water", ec, 12,
+        function() return getgenv().CW_Water end,
+        function(v) getgenv().CW_Water = v end)
+    local canOpts = {}
+    for _, mult in ipairs(CW_CAN_MULTS) do
+        canOpts[#canOpts + 1] = { value = mult .. "x", rarity = "Watering can" }
+    end
+    subDropdown(ec.body, "Trees", "Watering can", ec, 14, canOpts,
+        function() return (tonumber(getgenv().CW_WaterCan) or 64) .. "x" end,
+        function(v) getgenv().CW_WaterCan = tonumber((string.gsub(v, "x", ""))) or 64 end)
     local opts = {}
     opts[#opts + 1] = { value = "None", rarity = "Off" }
     for _, e in ipairs(CW_TREE_TYPES) do
