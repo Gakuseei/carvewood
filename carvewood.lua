@@ -677,14 +677,16 @@ do
         -- Ein grosser Baum wirft seine Logs ueber die ganze Fallanimation verteilt aus,
         -- darum wird geraeumt bis nichts mehr nachkommt und nicht nur eine feste Zahl Runden.
         local deadline = os.clock() + 15
-        local quiet = 0
+        local quiet, peak = 0, 0
         while getgenv().CW_Running and os.clock() < deadline do
             local logs = collectLists()
+            peak = math.max(peak, #logs)
             if #logs == 0 then
                 if #chips > 0 then task.wait(0.25) end
                 quiet = quiet + 1
-                if quiet >= 3 then break end
-                task.wait(0.4)
+                -- Kleine Baeume sind sofort durch, nur bei dicken Staemmen lohnt das Warten.
+                if quiet > (peak >= 6 and 3 or 1) then break end
+                task.wait(peak >= 6 and 0.4 or 0.15)
                 continue
             end
             quiet = 0
