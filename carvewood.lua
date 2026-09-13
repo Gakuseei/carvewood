@@ -1515,8 +1515,14 @@ local search = make("TextBox", { Name = "Search", Size = UDim2.new(1, -38, 1, -2
     FontFace = face(W.Regular), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left,
     ClearTextOnFocus = false }, searchWrap)
 padding(search, 0, 0, 8, 0)
-connect(search.Focused, function() searchBorder.BackgroundColor3 = ACCENT end)
-connect(search.FocusLost, function() searchBorder.BackgroundColor3 = STROKE end)
+connect(search.Focused, function()
+    searchBorder.BackgroundColor3 = ACCENT
+    animate(searchBorder, { Size = UDim2.new(1, -8, 0, 2), Position = UDim2.new(0, 4, 1, -2) }, 0.18)
+end)
+connect(search.FocusLost, function()
+    searchBorder.BackgroundColor3 = STROKE
+    animate(searchBorder, { Size = UDim2.new(1, -8, 0, 1), Position = UDim2.new(0, 4, 1, -1) }, 0.22)
+end)
 local smallSearch = button(side, "SearchButton", UDim2.fromOffset(40, 40), UDim2.fromOffset(8, 8), CARD)
 round(smallSearch, 10)
 icon(smallSearch, "Search", UDim2.fromOffset(11, 11), MUT, 18)
@@ -1615,7 +1621,10 @@ local function paintNav()
     end
     local y = active.AbsolutePosition.Y - side.AbsolutePosition.Y + 13
     if navSlider.Visible then
-        animate(navSlider, { Position = UDim2.fromOffset(4, y) })
+        animate(navSlider, { Position = UDim2.fromOffset(4, y), Size = UDim2.fromOffset(3, 12) }, 0.14)
+        task.delay(0.14, function()
+            if navSlider.Visible then animate(navSlider, { Size = UDim2.fromOffset(3, 20) }, 0.22) end
+        end)
     else
         navSlider.Position = UDim2.fromOffset(4, y)
         navSlider.Visible = true
@@ -1676,7 +1685,7 @@ local function card(page, pageName, value, desc, order, h)
     row.LayoutOrder = order
     row.ClipsDescendants = true
     round(row, 12)
-    outline(row)
+    local edge = outline(row)
     local t = text(row, "Heading", value, UDim2.new(1, -150, 0, 24), UDim2.fromOffset(18, 13), 18, TXT, true)
     local d = text(row, "Description", desc, UDim2.new(1, -150, 0, 30), UDim2.fromOffset(18, 38), 15, MUT)
     d.LineHeight = 1.12
@@ -1696,9 +1705,11 @@ local function card(page, pageName, value, desc, order, h)
     allCards[#allCards + 1] = { frame = row, page = pageName, title = value,
         text = string.lower(pageName .. " " .. value .. " " .. desc) }
     connect(row.MouseEnter, function()
+        animate(edge, { Color = CTRL }, 0.18)
         if not row:FindFirstChild("Body") then animate(row, { BackgroundColor3 = HOVER }, 0.18) end
     end)
     connect(row.MouseLeave, function()
+        animate(edge, { Color = STROKE }, 0.22)
         if not row:FindFirstChild("Body") then animate(row, { BackgroundColor3 = CARD }, 0.18) end
     end)
     return row
@@ -1798,6 +1809,11 @@ local function panel(page, pageName, value, desc, order, h)
         tintIcon(chevron, v and ACCENT or MUT)
         if not v then closeDD2() end
         fit(instant)
+        if v and not instant then
+            local rest = body.Position
+            body.Position = rest - UDim2.fromOffset(0, 8)
+            animate(body, { Position = rest }, 0.28)
+        end
         if not v then
             task.delay(0.24, function() if not open then body.Visible = false end end)
         end
@@ -2500,6 +2516,13 @@ local function setCollapsed(value)
     main:SetAttribute("Collapsed", value)
     main:SetAttribute("Animating", true)
     mini.Visible = value
+    if value then
+        for _, part in ipairs({ mini.Icon, mini.Title, mini.Status, mini.Dot }) do
+            local rest = part.Position
+            part.Position = rest - UDim2.fromOffset(10, 0)
+            animate(part, { Position = rest }, 0.36)
+        end
+    end
     animate(main, { BackgroundColor3 = value and SIDE or BG }, 0.34)
     header.Visible = not value
     side.Visible = not value
@@ -2522,7 +2545,14 @@ local function setCollapsed(value)
     end)
 end
 connect(btnMin.Activated, function() setCollapsed(not collapsed) end)
-connect(btnX.Activated, function() setCollapsed(false) closeDD2() modal.Visible = true end)
+connect(btnX.Activated, function()
+    setCollapsed(false)
+    closeDD2()
+    modal.Visible = true
+    local rest = dialog.Size
+    dialog.Size = UDim2.fromOffset(rest.X.Offset - 22, rest.Y.Offset - 14)
+    animate(dialog, { Size = rest }, 0.26)
+end)
 connect(confirm.Activated, function()
     getgenv().CW_AntiShake = false
     getgenv().CW_Farm = false
