@@ -1198,6 +1198,7 @@ do
         place = "PlaceCarvedWoodOnSaleSpot",
         placeLast = "PlaceLastWoodStackItemOnSaleSpot",
         offer = "SaleNPCOfferResponse",
+        data = "GetData",
     }
     local ids = {}
 
@@ -1302,6 +1303,24 @@ do
         return ok2 and type(r2) == "table" and r2.Success == true
     end
 
+    -- Fertige Stuecke liegen im Profil und nicht als Tool, darum ueber GetData lesen.
+    Carve.stock = function()
+        local rem = carveRemote("data")
+        if not rem then return {} end
+        local ok, data = pcall(function() return rem:InvokeServer({}) end)
+        if not ok or type(data) ~= "table" or type(data.Inventory) ~= "table" then return {} end
+        local carved = data.Inventory.Carved
+        if type(carved) ~= "table" then return {} end
+        local out = {}
+        for _, e in pairs(carved) do
+            if type(e) == "table" and e.Id and Carve.shelved(tostring(e.WoodId)) then
+                out[#out + 1] = e
+            end
+        end
+        table.sort(out, function(a, b) return (a.Quality or 0) > (b.Quality or 0) end)
+        return out
+    end
+
     -- Kundenangebote haengen im SaleNPCs-Modul, annehmen geht ohne Laufweg.
     task.spawn(function()
         while getgenv().CW_Running and getgenv().CW_Gen == myGen do
@@ -1325,7 +1344,33 @@ do
     task.spawn(function()
         while getgenv().CW_Running and getgenv().CW_Gen == myGen do
             local didWork = false
-            if getgenv().CW_Carve or getgenv().CW_Shelve then
+            -- Erst raeumt der Script alles Geschnitzte aus dem Inventar auf die Regale.
+            if getgenv().CW_Shelve then
+                local ty = myTycoon()
+                local spots = ty and freeSpots(ty)
+                if spots and #spots > 0 and Move.claim("carve", 30) then
+                    local stock = Carve.stock()
+                    if #stock > 0 then
+                        local center = shelfCenter(ty)
+                        local h = hrp()
+                        if center and h and (h.Position - center).Magnitude > 12 then
+                            Move.glide(h, CFrame.new(center + Vector3.new(0, 6, 0)))
+                            task.wait(0.3)
+                        end
+                        for i, spot in ipairs(spots) do
+                            if not (getgenv().CW_Running and getgenv().CW_Shelve) then break end
+                            if not stock[i] then break end
+                            if placeOn(spot, ty, stock[i].Id) then
+                                getgenv().CW_Shelved = (getgenv().CW_Shelved or 0) + 1
+                                didWork = true
+                            end
+                            task.wait(0.12)
+                        end
+                    end
+                    Move.release("carve")
+                end
+            end
+            if getgenv().CW_Carve or (getgenv().CW_Shelve and not didWork) then
                 local sess = carveRemote("session")
                 local save = carveRemote("save")
                 local ty = sess and save and myTycoon()
