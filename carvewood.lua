@@ -674,13 +674,20 @@ do
             end
         end)
 
-        for _ = 1, 4 do
-            if not getgenv().CW_Running then break end
+        -- Ein grosser Baum wirft seine Logs ueber die ganze Fallanimation verteilt aus,
+        -- darum wird geraeumt bis nichts mehr nachkommt und nicht nur eine feste Zahl Runden.
+        local deadline = os.clock() + 15
+        local quiet = 0
+        while getgenv().CW_Running and os.clock() < deadline do
             local logs = collectLists()
             if #logs == 0 then
                 if #chips > 0 then task.wait(0.25) end
-                break
+                quiet = quiet + 1
+                if quiet >= 3 then break end
+                task.wait(0.4)
+                continue
             end
+            quiet = 0
             local stops = {}
             while #logs > 0 do
                 local anchor = table.remove(logs, 1)
@@ -706,6 +713,7 @@ do
         end
         task.wait(0.2)
         pulling:Disconnect()
+        getgenv().CW_DropsLeft = #collectLists()
     end
 
     -- Der AxeController kettet Schwuenge selbst weiter, solange HeldInput steht.
